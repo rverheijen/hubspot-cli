@@ -1,0 +1,32 @@
+{
+  "name": "hubspot-cli",
+  "version": "0.1.0",
+  "description": "A data-engineering CLI for HubSpot. Manage CRM objects, properties, associations, pipelines, users, and teams across environments.",
+  "type": "module",
+  "main": "bin/cli.js",
+  "bin": {
+    "hubspot-cli": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md",
+    "LICENSE.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@hubspot/api-client": "^14.0.1",
+    "@hubspot/cli": "^8.14.0",
+    "dotenv": "^16.4.5"
+  },
+  "keywords": [
+    "hubspot",
+    "hubspot-cli",
+    "crm",
+    "data-engineering",
+    "revops"
+  ],
+  "license": "Sustainable Use License"
+}
