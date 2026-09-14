@@ -59,13 +59,13 @@ hubspot-cli object diff --all
 | `object list` | List all CRM object types |
 | `object pull <objectType>` | Pull schema, groups, and properties for one object |
 | `object pull --all` | Pull all objects |
-| `object pull <objectType> --all-props` | Pull one object including every standard property |
+| `object pull <objectType> --full` | Pull one object including every standard property |
 | `object push <file>` | Push one object bundle (create or update properties/groups) |
 | `object push --all` | Push all local object bundles |
 | `object diff <file>` | Compare local bundle against remote |
 | `object diff --all` | Diff all local bundles |
 
-By default, standard objects (e.g. `contacts`, `companies`, `deals`) are pulled in **sparse mode**: only custom properties and the property groups that contain them are written to disk. Custom objects are always pulled in **full mode**. Bundles store a `pullMode` field so `diff` knows whether to report remote-only removals. Use `--all-props` to override.
+By default, standard objects (e.g. `contacts`, `companies`, `deals`) are pulled in **sparse mode**: only custom properties and the property groups that contain them are written to disk. Custom objects are always pulled in **full mode**. Bundles store a `pullMode` field so `diff` knows whether to report remote-only removals. Use `--full` to override.
 
 ### `association`
 

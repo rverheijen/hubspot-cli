@@ -45,7 +45,7 @@ GLOBAL FLAGS
   --env-file <path>  Load a specific .env file
   --dir <path>       Override the default source/target directory (default: ./${baseDir})
   --all              Operate on all items in the target directory
-  --all-props        On pull, include all standard properties (default: only custom/modified)
+  --full             On pull, include all standard properties (default: only custom/modified)
 
 ENVIRONMENT
   HUBSPOT_ACCESS_TOKEN    Private App access token for the target portal
@@ -58,7 +58,7 @@ function commandHelp() {
   $ hubspot-cli object list
   $ hubspot-cli object pull <object>        # e.g. contacts, companies, deals, p_customobject
   $ hubspot-cli object pull --all
-  $ hubspot-cli object pull <object> --all-props    # include all standard properties
+  $ hubspot-cli object pull <object> --full    # include all standard properties
   $ hubspot-cli object push <file>
   $ hubspot-cli object push --all
   $ hubspot-cli object diff <file>
