@@ -13,7 +13,7 @@ import { listPipelines, pullPipelines, pushPipelines } from '../lib/pipeline.js'
 import { listUsers } from '../lib/user.js';
 import { listTeams } from '../lib/team.js';
 
-const { remaining: args, envFile, envName, dir, all } = parseGlobalFlags(process.argv.slice(2));
+const { remaining: args, envFile, envName, dir, all, allProps } = parseGlobalFlags(process.argv.slice(2));
 
 loadEnvFile(envFile, envName);
 
@@ -44,7 +44,8 @@ GLOBAL FLAGS
   --env <name>       Environment name (loads .env.<name> if present)
   --env-file <path>  Load a specific .env file
   --dir <path>       Override the default source/target directory (default: ./${baseDir})
-  --all              Operate on all local items in the target directory
+  --all              Operate on all items in the target directory
+  --all-props        On pull, include all standard properties (default: only custom/modified)
 
 ENVIRONMENT
   HUBSPOT_ACCESS_TOKEN    Private App access token for the target portal
@@ -57,6 +58,7 @@ function commandHelp() {
   $ hubspot-cli object list
   $ hubspot-cli object pull <object>        # e.g. contacts, companies, deals, p_customobject
   $ hubspot-cli object pull --all
+  $ hubspot-cli object pull <object> --all-props    # include all standard properties
   $ hubspot-cli object push <file>
   $ hubspot-cli object push --all
   $ hubspot-cli object diff <file>
@@ -106,7 +108,7 @@ async function run() {
       }
 
       if (action === 'pull' && all) {
-        const ok = await pullObject('--all', baseDir, currentEnvName, manifest, client);
+        const ok = await pullObject('--all', baseDir, currentEnvName, manifest, client, { allProps });
         writeManifest(manifest);
         return ok ? 0 : 1;
       }
@@ -114,7 +116,7 @@ async function run() {
       if (action === 'pull') {
         const objectType = args[2];
         if (!objectType) { console.error('Usage: hubspot-cli object pull <objectType>'); return 1; }
-        const ok = await pullObject(objectType, baseDir, currentEnvName, manifest, client);
+        const ok = await pullObject(objectType, baseDir, currentEnvName, manifest, client, { allProps });
         writeManifest(manifest);
         return ok ? 0 : 1;
       }
