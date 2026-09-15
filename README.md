@@ -2,15 +2,11 @@
 
 A data-engineering CLI for HubSpot. Built on top of the official `@hubspot/api-client`, it lets you manage CRM object schemas, properties, associations, pipelines, users, and teams across environments — ideal for RevOps implementations, data migrations, and portal-to-portal configuration syncs.
 
-This package also installs the official `@hubspot/cli` (`hs`) for local development work, but does not wrap it yet.
-
 ## Install
 
 ```bash
 npm install -g github:rverheijen/hubspot-cli
 ```
-
-Both this wrapper and the official `hs` CLI become available.
 
 ## Authentication
 
