@@ -20,7 +20,7 @@ Create a Private App in each HubSpot portal and grant the scopes you need:
 Copy the Private App access token and put it in `.env`:
 
 ```bash
-HUBSPOT_ACCESS_TOKEN=pat-na1-...
+HUBSPOT_API_KEY=pat-na1-...
 HUBSPOT_ENV=default
 ```
 

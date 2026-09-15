@@ -48,7 +48,7 @@ GLOBAL FLAGS
   --full             On pull, include all standard properties (default: only custom/modified)
 
 ENVIRONMENT
-  HUBSPOT_ACCESS_TOKEN    Private App access token for the target portal
+  HUBSPOT_API_KEY         Private App access token or service key for the target portal
   HUBSPOT_ENV             Optional default environment label
 `);
 }

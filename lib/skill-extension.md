@@ -6,7 +6,7 @@ Use it for HubSpot data-engineering tasks (CRM objects, properties, associations
 
 ### Authentication
 
-The wrapper reads `HUBSPOT_ACCESS_TOKEN` from `.env` or `.env.<env>` files. Create a Private App in the target HubSpot portal with the scopes required for the resources you plan to manage.
+The wrapper reads `HUBSPOT_API_KEY` from `.env` or `.env.<env>` files. Create a Private App (or service key) in the target HubSpot portal with the scopes required for the resources you plan to manage.
 
 ### Global flags
 
