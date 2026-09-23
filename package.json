@@ -10,9 +10,13 @@
   "files": [
     "bin/",
     "lib/",
+    "scripts/",
     "README.md",
     "LICENSE.md"
   ],
+  "scripts": {
+    "postinstall": "sh scripts/postinstall.sh"
+  },
   "engines": {
     "node": ">=18.0.0"
   },

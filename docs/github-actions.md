@@ -84,12 +84,11 @@ your-project/
 
 ## Prerequisites
 
-### 1. Install `hubspot` and `hubspot-cli` in CI
+### 1. Install `hubspot-cli` in CI
 
-The official `hubspot` binary isn't an npm package, so CI needs to install both it and this wrapper:
+`npm install -g github:rverheijen/hubspot-cli` installs the official `hubspot` binary automatically too (via a `postinstall` step) - no separate curl step needed. GitHub Actions still requires `$HOME/.hubspot/bin` to be registered on `$GITHUB_PATH` as its own step before that, so later steps in the job can find it:
 
 ```bash
-curl -fsSL https://api.hubapi.com/hub/cli/backend/hub-cli/latest/install.sh | sh
 echo "$HOME/.hubspot/bin" >> "$GITHUB_PATH"
 npm install -g github:rverheijen/hubspot-cli
 ```
@@ -146,9 +145,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install hubspot and hubspot-cli
+      - name: Install hubspot-cli
         run: |
-          curl -fsSL https://api.hubapi.com/hub/cli/backend/hub-cli/latest/install.sh | sh
           echo "$HOME/.hubspot/bin" >> "$GITHUB_PATH"
           npm install -g github:rverheijen/hubspot-cli
 
@@ -197,9 +195,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install hubspot and hubspot-cli
+      - name: Install hubspot-cli
         run: |
-          curl -fsSL https://api.hubapi.com/hub/cli/backend/hub-cli/latest/install.sh | sh
           echo "$HOME/.hubspot/bin" >> "$GITHUB_PATH"
           npm install -g github:rverheijen/hubspot-cli
 
@@ -273,9 +270,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install hubspot and hubspot-cli
+      - name: Install hubspot-cli
         run: |
-          curl -fsSL https://api.hubapi.com/hub/cli/backend/hub-cli/latest/install.sh | sh
           echo "$HOME/.hubspot/bin" >> "$GITHUB_PATH"
           npm install -g github:rverheijen/hubspot-cli
 
@@ -311,9 +307,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install hubspot and hubspot-cli
+      - name: Install hubspot-cli
         run: |
-          curl -fsSL https://api.hubapi.com/hub/cli/backend/hub-cli/latest/install.sh | sh
           echo "$HOME/.hubspot/bin" >> "$GITHUB_PATH"
           npm install -g github:rverheijen/hubspot-cli
 
@@ -349,9 +344,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install hubspot and hubspot-cli
+      - name: Install hubspot-cli
         run: |
-          curl -fsSL https://api.hubapi.com/hub/cli/backend/hub-cli/latest/install.sh | sh
           echo "$HOME/.hubspot/bin" >> "$GITHUB_PATH"
           npm install -g github:rverheijen/hubspot-cli
 

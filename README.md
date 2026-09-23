@@ -6,19 +6,17 @@ All official `hubspot` commands and flags pass through unchanged. This wrapper o
 
 ## Install
 
-The official `hubspot` binary is **not** an npm package — it's a separate Rust binary, typically already on your machine if you're using it as a Claude Code skill (`npx skills add hubspot/agent-cli-skills`), or installable directly:
+```bash
+npm install -g github:rverheijen/hubspot-cli
+```
+
+The official `hubspot` binary is **not** an npm package, so it can't be declared as a normal `dependency` — instead, a `postinstall` script handles it automatically: if `hubspot` is already on your `PATH` (e.g. installed via the Claude Code skill, `npx skills add hubspot/agent-cli-skills`), it runs `hubspot upgrade` to make sure you're current; otherwise it installs it fresh via the official installer. Either way never fails the wrapper's own install — if it can't reach the network, `hubspot-cli` still gives a clear error at runtime pointing at the manual install command:
 
 ```bash
 curl -fsSL https://api.hubapi.com/hub/cli/backend/hub-cli/latest/install.sh | sh
 ```
 
-Then install this wrapper:
-
-```bash
-npm install -g github:rverheijen/hubspot-cli
-```
-
-`hubspot-cli` looks for `hubspot` on your `PATH` at runtime and errors with install instructions if it's missing. It is deliberately **not** bundled as a dependency here.
+`hubspot-cli` looks for `hubspot` on your `PATH` at runtime.
 
 ## Uninstall
 
