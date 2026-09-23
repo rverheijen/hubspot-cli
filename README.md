@@ -149,14 +149,14 @@ Nearly every mutating `hubspot` command (`schemas update/delete`, `properties up
 
 Standard objects (`contacts`, `companies`, ...) use the same shape with `metaType: "HUBSPOT"` — the schema-level fields (`labels`, `primaryDisplayProperty`, `requiredProperties`, `associatedObjects`) are included for reference but `push` never acts on them (see "Standard vs. custom objects" above).
 
-By default, a standard object's `properties` list is **sparse** — only custom (non-`hubspotDefined`) properties and the groups that contain them. A custom object's `properties` list is always full (there's nothing HubSpot-defined to filter). Pass `--full` to pull every HubSpot-defined property on a standard object too, for reference — they're never pushed either way.
+By default, `properties` is **sparse** — only non-`hubspotDefined` properties and the groups that contain them. This applies to every object type, not just standard ones: even a freshly created custom object carries ~30 HubSpot-managed boilerplate properties (`hs_object_id`, `hs_createdate`, `hubspot_owner_id`, ...), all marked `hubspotDefined: true` — confirmed by pulling one live. Pass `--full` to also pull those, for reference — they're never pushed either way.
 
 ### `objects pull <type>`
 
 ```bash
-hubspot-cli objects pull equipment
-hubspot-cli objects pull contacts                # standard object, sparse (custom properties only)
-hubspot-cli objects pull contacts --full          # + every HubSpot-defined property, for reference
+hubspot-cli objects pull equipment                # sparse by default, same as any object type
+hubspot-cli objects pull contacts                  # sparse (custom properties only)
+hubspot-cli objects pull contacts --full           # + every HubSpot-defined property, for reference
 hubspot-cli objects pull equipment --env sandbox
 ```
 
