@@ -109,17 +109,21 @@ Same top-level command name, disambiguated entirely by verb — same pattern as 
 
 `hubspot schemas list` only enumerates **custom** schemas. To discover everything (standard + custom), `objects pull --all` uses `hubspot objects types` first, then `hubspot schemas get --type <name>` per type (which returns properties embedded, for both kinds — `metaType: HUBSPOT` for standard, `PORTAL_SPECIFIC` for custom).
 
-`objects push` **never touches schema-level fields (labels, primary display property, required properties, associated objects) on a `metaType: HUBSPOT` target** — those are skipped silently, regardless of what's in the local file (pass `--force` to override, with a warning). Standard schema metadata updates are marked `mutation_kind: "MetadataDestroy"` and `reversible: false` by the underlying API, so this is a deliberate guard, not an oversight. Property groups and properties are still fully created/updated for standard objects either way — adding/updating your own custom fields on `contacts` is the common case and isn't destructive to HubSpot's own fields.
+`objects push` **never applies schema-level fields (labels, primary display property, required properties) on a `metaType: HUBSPOT` target** by default — those are skipped silently unless `--force` is passed, in which case they're at least *reported* (see below; nothing can actually be applied there either way, for a separate reason). Property groups and properties are still fully created/updated for standard objects regardless — adding/updating your own custom fields on `contacts` is the common case and isn't destructive to HubSpot's own fields.
 
-For a **custom** object type, `objects push` creates the schema (with its initial properties) if it doesn't exist yet in the manifest, otherwise reconciles schema metadata, groups, and properties all in the same call.
+For a **custom** object type, `objects push` creates the schema (with its initial properties) if it doesn't exist yet, otherwise reconciles groups and properties, and *reports* (does not apply) any schema-metadata drift — see below.
 
 ---
 
-## Push safety: the dry-run / digest / confirm handshake
+## Push safety, and a real limitation: schema metadata can't currently be pushed to an existing object
 
-Nearly every mutating `hubspot` command (`schemas update/delete`, `properties update/delete`, `pipelines update/delete`, `pipelines stages-update`, `associations labels-update/delete`, `views delete`) gates real execution behind a two-step confirm: run with `--dry-run` to get a `digest`, then re-run with `--digest <hash> --confirm <exact-name>`. That's a deliberate brake for a human typing commands by hand.
+Several mutating `hubspot` commands (`schemas update/delete`, `properties update/delete`, `pipelines update/delete`, `associations labels-update/delete`, `views delete`, ...) are *documented* as gating real execution behind a two-step confirm: run with `--dry-run` to get a `digest`, then re-run with `--digest <hash> --confirm <exact-name>`. In practice this varies a lot by command, confirmed by testing directly:
 
-`hubspot-cli`'s `push` commands do this handshake **automatically and transparently** — one `hubspot-cli objects push equipment.json` call does the dry-run, extracts the digest, and re-issues with confirm internally, for each underlying mutation it needs to make. This is worth knowing explicitly: `push` is authorizing a destructive confirm on your behalf. Read the diff output first if you're unsure.
+- **`properties update`** isn't actually gated at all, despite its own `--help` text implying it is — it executes immediately, no dry-run/digest/confirm needed. `objects push` calls it directly.
+- **`schemas create`** isn't gated either, and separately its `--dry-run` doesn't validate anything (always reports success, even for an empty body) — `objects push` never relies on it for validation, just lets the real call fail and surfaces the error.
+- **`schemas update`**'s confirm step is gated for real (a genuine API round-trip, real digest) — but the confirm call itself is **broken**: it returns `ok: true` with what looks like the updated schema, but the change is never actually persisted. Confirmed by testing directly and waiting well past any plausible propagation delay. See [rverheijen/hubspot-cli#4](https://github.com/rverheijen/hubspot-cli/issues/4) (filed upstream: [HubSpot/agent-cli#7](https://github.com/HubSpot/agent-cli/issues/7)).
+
+Because of that last one, **`objects push` does not attempt `schemas update` at all** for an existing custom object — attempting a call known to silently no-op while reporting success would be worse than not attempting it. Instead, if a local bundle's `labels`/`primaryDisplayProperty`/`requiredProperties` differ from what's live, `push` prints a `!` line naming exactly which fields differ and why it can't apply them, and leaves the manifest/exit code unaffected (this alone doesn't count as a failure). Use the HubSpot UI to make that kind of change until the upstream bug is fixed. `objects diff` is unaffected by any of this and will always correctly show the drift either way.
 
 ---
 
@@ -182,7 +186,7 @@ hubspot-cli objects push hubspot/objects/equipment.json --env production
 hubspot-cli objects push hubspot/objects/contacts.json   # standard: only groups/properties are applied
 ```
 
-Creates the schema (custom types only, with its initial properties) if missing from the manifest for this environment. Otherwise reconciles, in order: schema metadata (custom types only) → property groups (create/update; delete only if empty — HubSpot refuses to delete a non-empty group) → properties (create missing, update changed; HubSpot-defined properties are never touched even if present in a `--full`-pulled file).
+Creates the schema (custom types only, with its initial properties, in one call) if it doesn't exist yet. Otherwise reconciles, in order: property groups (create missing; update label/order changes — no deletion yet) → properties (create missing via `properties batch-create`; update changed `label`/`groupName` only — that's all `hubspot properties update` actually supports, other field changes are reported but not applied; HubSpot-defined properties are never touched even if present in a `--full`-pulled file) → schema metadata drift is *reported*, not applied (see "Push safety" above).
 
 ### `objects diff <file>` / `--all`
 

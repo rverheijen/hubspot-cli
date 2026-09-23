@@ -4,8 +4,9 @@ import { runHubspot } from '../lib/run.js';
 import { parseGlobalFlags, loadEnvFile, buildEnv, deriveEnvName } from '../lib/env.js';
 import { pullObject, pullAllObjects, fetchObjectBundle, readObjectBundle, listLocalObjectFiles } from '../lib/objects.js';
 import { diffObjectBundles, hasDifferences, formatObjectDiff } from '../lib/diff.js';
+import { pushObject } from '../lib/push.js';
 
-const { remaining: args, envFile, envName, dir, all, full } = parseGlobalFlags(process.argv.slice(2));
+const { remaining: args, envFile, envName, dir, all, full, force } = parseGlobalFlags(process.argv.slice(2));
 
 loadEnvFile(envFile, envName);
 const env = buildEnv();
@@ -17,6 +18,7 @@ const currentEnvName = deriveEnvName(envFile, envName);
 const ADDED_COMMANDS = [
   'objects pull <type> / --all   Save an object\'s schema + property groups + properties to hubspot/objects/',
   'objects diff <file> / --all   Compare a local object bundle against remote',
+  'objects push <file> / --all   Create/update an object\'s schema, property groups, and properties',
 ];
 
 // top-level --help / -h / no args
@@ -90,6 +92,36 @@ if (args[0] === 'objects' && args[1] === 'diff') {
     if (await diffOne(f)) anyDiffer = true;
   }
   process.exit(anyDiffer ? 1 : 0);
+}
+
+// objects push <file> / --all
+if (args[0] === 'objects' && args[1] === 'push') {
+  const file = args[2] && !args[2].startsWith('--') ? args[2] : null;
+
+  if (!file && !all) {
+    console.error('Usage: hubspot-cli objects push <file>');
+    console.error('       hubspot-cli objects push --all');
+    process.exit(1);
+  }
+
+  async function pushOne(filePath) {
+    try {
+      const { objectTypeId, messages } = await pushObject(filePath, { env, envName: currentEnvName, force });
+      console.log(`${filePath} -> ${objectTypeId}`);
+      for (const m of messages) console.log(`  ${m}`);
+      return true;
+    } catch (err) {
+      console.error(`${filePath}: ${err.message}`);
+      return false;
+    }
+  }
+
+  const files = all ? listLocalObjectFiles(dir) : [file];
+  let anyFailed = false;
+  for (const f of files) {
+    if (!(await pushOne(f))) anyFailed = true;
+  }
+  process.exit(anyFailed ? 1 : 0);
 }
 
 // Everything else passes straight through to the real hubspot binary.
