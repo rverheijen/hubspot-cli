@@ -1,0 +1,25 @@
+{
+  "name": "hubspot-cli",
+  "version": "0.1.0",
+  "description": "A custom wrapper around the official hubspot Agent CLI that adds config-as-code commands on top.",
+  "type": "module",
+  "main": "bin/cli.js",
+  "bin": {
+    "hubspot-cli": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md",
+    "LICENSE.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "hubspot",
+    "hubspot-cli",
+    "wrapper"
+  ],
+  "license": "Sustainable Use License"
+}
