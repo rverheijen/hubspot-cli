@@ -132,11 +132,12 @@ Nearly every mutating `hubspot` command (`schemas update/delete`, `properties up
 ```json
 {
   "name": "equipment",
+  "objectTypeId": "2-12345678",
   "metaType": "PORTAL_SPECIFIC",
   "labels": { "singular": "Equipment", "plural": "Equipment" },
   "primaryDisplayProperty": "equipment_name",
   "requiredProperties": ["equipment_name"],
-  "associatedObjects": ["contacts", "companies"],
+  "full": false,
   "groups": [
     { "name": "warranty", "label": "Warranty", "displayOrder": 0 }
   ],
@@ -147,7 +148,13 @@ Nearly every mutating `hubspot` command (`schemas update/delete`, `properties up
 }
 ```
 
-Standard objects (`contacts`, `companies`, ...) use the same shape with `metaType: "HUBSPOT"` — the schema-level fields (`labels`, `primaryDisplayProperty`, `requiredProperties`, `associatedObjects`) are included for reference but `push` never acts on them (see "Standard vs. custom objects" above).
+`objectTypeId` and `full` are bookkeeping `pull` writes for itself — `full` records which mode a bundle was pulled in, so `diff` compares against a remote fetch in the same mode (otherwise a sparse local file would show hundreds of false "removed" entries for HubSpot's own boilerplate properties). Neither is meant to be hand-edited.
+
+Standard objects (`contacts`, `companies`, ...) use the same shape with `metaType: "HUBSPOT"` — the schema-level fields (`labels`, `primaryDisplayProperty`, `requiredProperties`) are included for reference but `push` never acts on them (see "Standard vs. custom objects" above).
+
+`associatedObjects` (the list of object types a *new* custom schema should be associable with) is a write-only field for `schemas create` — `pull` doesn't populate it, since what `schemas get` actually returns is the full, portal-specific list of every association *type* already set up for that object (hundreds of entries even for a small custom object), not the simple list `associatedObjects` expects as input. Add it by hand to a bundle you're authoring for a brand-new custom object; there's nothing to round-trip for an object that already exists.
+
+**Authoring a bundle for a brand-new custom object** (one `objects push` needs to create from scratch): only `name` and `labels` are actually required — confirmed directly against the API (an empty body is rejected with `required fields were not set: [name, labels]`; `name` alone still fails on `[labels]`). Everything else (`primaryDisplayProperty`, `requiredProperties`, `associatedObjects`, initial `properties`) is optional at creation time. For an object that already exists, none of the schema-level fields are required in the file at all — omit `labels` (or anything else) to mean "leave it alone," `objects push` only acts on what's present.
 
 By default, `properties` is **sparse** — only non-`hubspotDefined` properties and the groups that contain them. This applies to every object type, not just standard ones: even a freshly created custom object carries ~30 HubSpot-managed boilerplate properties (`hs_object_id`, `hs_createdate`, `hubspot_owner_id`, ...), all marked `hubspotDefined: true` — confirmed by pulling one live. Pass `--full` to also pull those, for reference — they're never pushed either way.
 

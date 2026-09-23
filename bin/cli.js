@@ -2,7 +2,8 @@
 
 import { runHubspot } from '../lib/run.js';
 import { parseGlobalFlags, loadEnvFile, buildEnv, deriveEnvName } from '../lib/env.js';
-import { pullObject, pullAllObjects } from '../lib/objects.js';
+import { pullObject, pullAllObjects, fetchObjectBundle, readObjectBundle, listLocalObjectFiles } from '../lib/objects.js';
+import { diffObjectBundles, hasDifferences, formatObjectDiff } from '../lib/diff.js';
 
 const { remaining: args, envFile, envName, dir, all, full } = parseGlobalFlags(process.argv.slice(2));
 
@@ -15,6 +16,7 @@ const currentEnvName = deriveEnvName(envFile, envName);
 // hubspot CLI.
 const ADDED_COMMANDS = [
   'objects pull <type> / --all   Save an object\'s schema + property groups + properties to hubspot/objects/',
+  'objects diff <file> / --all   Compare a local object bundle against remote',
 ];
 
 // top-level --help / -h / no args
@@ -60,6 +62,34 @@ if (args[0] === 'objects' && args[1] === 'pull') {
     console.log(`Pulled ${type} -> ${filePath}`);
     process.exit(0);
   }
+}
+
+// objects diff <file> / --all
+if (args[0] === 'objects' && args[1] === 'diff') {
+  const file = args[2] && !args[2].startsWith('--') ? args[2] : null;
+
+  if (!file && !all) {
+    console.error('Usage: hubspot-cli objects diff <file>');
+    console.error('       hubspot-cli objects diff --all');
+    process.exit(1);
+  }
+
+  async function diffOne(filePath) {
+    const local = readObjectBundle(filePath);
+    const remote = await fetchObjectBundle(local.name, { full: local.full, env });
+    const diff = diffObjectBundles(local, remote);
+    const differs = hasDifferences(diff);
+    console.log(formatObjectDiff(diff, `${filePath} vs remote (env: ${currentEnvName})`));
+    console.log();
+    return differs;
+  }
+
+  const files = all ? listLocalObjectFiles(dir) : [file];
+  let anyDiffer = false;
+  for (const f of files) {
+    if (await diffOne(f)) anyDiffer = true;
+  }
+  process.exit(anyDiffer ? 1 : 0);
 }
 
 // Everything else passes straight through to the real hubspot binary.
