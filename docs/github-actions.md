@@ -1,6 +1,6 @@
 # GitHub Actions CI/CD Guide
 
-This guide explains how to use `hubspot-cli` with GitHub Actions to validate, deploy and promote HubSpot portal configuration (schemas, properties, property groups, pipelines, associations, views, workflows) across one or more portals.
+This guide explains how to use `hubspot-cli` with GitHub Actions to validate, deploy and promote HubSpot portal configuration (object bundles, pipelines, associations, views, workflows) across one or more portals.
 
 ---
 
@@ -13,35 +13,33 @@ Developer pushes code
      ┌─────────────────────────────┐    PR opened       ┌────────────────────────────┐
      │  Git repo                   │───────────────────►│  CI: validate              │
      │  ├── hubspot/                │                    │  └─ Changed config files   │
-     │  │   ├── schemas/            │                    └────────────────────────────┘
-     │  │   ├── properties/         │   Merge to main    ┌────────────────────────────┐
-     │  │   ├── property-groups/    │───────────────────►│  CD: sandbox               │
-     │  │   ├── pipelines/          │                    │  1. schemas push           │
-     │  │   ├── associations/       │                    │  2. property-groups push   │
-     │  │   ├── views/              │                    │  3. properties push        │
-     │  │   └── workflows/          │                    │  4. pipelines push         │
-     │  └── .hubspot_cli/           │                    │  5. associations push      │
-     │      └── manifest.json       │                    │  6. views push             │
-     └─────────────────────────────┘                    │  7. workflows push          │
+     │  │   ├── objects/            │                    └────────────────────────────┘
+     │  │   ├── pipelines/          │   Merge to main    ┌────────────────────────────┐
+     │  │   ├── associations/       │───────────────────►│  CD: sandbox               │
+     │  │   ├── views/              │                    │  1. objects push           │
+     │  │   └── workflows/          │                    │  2. pipelines push         │
+     │  └── .hubspot_cli/           │                    │  3. associations push      │
+     │      └── manifest.json       │                    │  4. views push             │
+     └─────────────────────────────┘                    │  5. workflows push          │
                  ▲                                       └──────────────┬─────────────┘
                  │                                                     │ passes
                  │                                                     ▼
                  │                                      ┌────────────────────────────┐
                  │                                      │  CD: quality_assurance     │
-                 │                                      │  (same 7 steps)             │
+                 │                                      │  (same 5 steps)             │
                  │                                      └──────────────┬─────────────┘
                  │                                                     │ approved
                  │                                                     ▼
                  │                                      ┌────────────────────────────┐
                  │                                      │  CD: production            │
-                 │                                      │  (same 7 steps)             │
+                 │                                      │  (same 5 steps)             │
                  │                                      └──────────────┬─────────────┘
                  │                                                     │
                  └─────────────────────────────────────────────────────┘
                               manifest committed back
 ```
 
-Deployment order matters: a schema must exist before properties can be added to it, groups should exist before properties are assigned into them, and pipelines/associations/views/workflows can all reference object types and properties defined earlier in the sequence.
+Deployment order matters: an object's schema must exist before pipelines/associations/views/workflows that reference it can be pushed. `objects push` itself is one step because a single object bundle covers schema, property groups, and properties together — see the README's "Object commands" section.
 
 ---
 
@@ -55,20 +53,16 @@ your-project/
 │       ├── cd.yml                  deploy to single portal on merge
 │       └── cd-promote.yml          promote sandbox -> quality_assurance -> production
 ├── .hubspot_cli/
-│   └── manifest.json               tracks schema/pipeline/view/workflow IDs per portal
+│   └── manifest.json               tracks object/pipeline/view/workflow IDs per portal
 ├── hubspot/
-│   ├── schemas/
-│   │   └── equipment.json
-│   ├── properties/
-│   │   ├── contacts.json           custom properties only, unless pulled with --full
-│   │   └── equipment.json
-│   ├── property-groups/
-│   │   └── contacts.json
+│   ├── objects/
+│   │   ├── contacts.json           standard object: sparse (custom properties only) unless pulled with --full
+│   │   └── equipment.json          custom object: schema + groups + properties, one bundle
 │   ├── pipelines/
 │   │   └── deals/
 │   │       └── sales_pipeline.json
 │   ├── associations/
-│   │   └── contacts_companies.json
+│   │   └── contacts-companies.json
 │   ├── views/
 │   │   └── deals/
 │   │       └── all_open_deals.json
@@ -163,7 +157,7 @@ jobs:
           HUBSPOT_ACCESS_TOKEN: ${{ secrets.HUBSPOT_ACCESS_TOKEN }}
         run: |
           git fetch origin ${{ github.base_ref }}
-          for resource in schemas properties property-groups pipelines associations views workflows; do
+          for resource in objects pipelines associations views workflows; do
             git diff --name-only origin/${{ github.base_ref }}...HEAD -- "hubspot/$resource/**.json" | \
             while read file; do
               [ -f "$file" ] || continue
@@ -209,20 +203,10 @@ jobs:
           echo "$HOME/.hubspot/bin" >> "$GITHUB_PATH"
           npm install -g github:rverheijen/hubspot-cli
 
-      - name: Push schemas
+      - name: Push objects
         env:
           HUBSPOT_ACCESS_TOKEN: ${{ secrets.HUBSPOT_ACCESS_TOKEN }}
-        run: hubspot-cli schemas push --all
-
-      - name: Push property groups
-        env:
-          HUBSPOT_ACCESS_TOKEN: ${{ secrets.HUBSPOT_ACCESS_TOKEN }}
-        run: hubspot-cli properties groups push --all
-
-      - name: Push properties
-        env:
-          HUBSPOT_ACCESS_TOKEN: ${{ secrets.HUBSPOT_ACCESS_TOKEN }}
-        run: hubspot-cli properties push --all
+        run: hubspot-cli objects push --all
 
       - name: Push pipelines
         env:
@@ -299,9 +283,7 @@ jobs:
         env:
           HUBSPOT_ACCESS_TOKEN: ${{ secrets.HUBSPOT_ACCESS_TOKEN }}
         run: |
-          hubspot-cli schemas push --all --env sandbox
-          hubspot-cli properties groups push --all --env sandbox
-          hubspot-cli properties push --all --env sandbox
+          hubspot-cli objects push --all --env sandbox
           hubspot-cli pipelines push --all --env sandbox
           hubspot-cli associations push --all --env sandbox
           hubspot-cli views push --all --env sandbox
@@ -339,9 +321,7 @@ jobs:
         env:
           HUBSPOT_ACCESS_TOKEN: ${{ secrets.HUBSPOT_ACCESS_TOKEN }}
         run: |
-          hubspot-cli schemas push --all --env quality_assurance
-          hubspot-cli properties groups push --all --env quality_assurance
-          hubspot-cli properties push --all --env quality_assurance
+          hubspot-cli objects push --all --env quality_assurance
           hubspot-cli pipelines push --all --env quality_assurance
           hubspot-cli associations push --all --env quality_assurance
           hubspot-cli views push --all --env quality_assurance
@@ -379,9 +359,7 @@ jobs:
         env:
           HUBSPOT_ACCESS_TOKEN: ${{ secrets.HUBSPOT_ACCESS_TOKEN }}
         run: |
-          hubspot-cli schemas push --all --env production
-          hubspot-cli properties groups push --all --env production
-          hubspot-cli properties push --all --env production
+          hubspot-cli objects push --all --env production
           hubspot-cli pipelines push --all --env production
           hubspot-cli associations push --all --env production
           hubspot-cli views push --all --env production
@@ -402,9 +380,9 @@ The manifest grows one section per portal:
 
 ```json
 {
-  "sandbox":           { "schemas": { "equipment.json": "2-11111111" } },
-  "quality_assurance": { "schemas": { "equipment.json": "2-22222222" } },
-  "production":        { "schemas": { "equipment.json": "2-33333333" } }
+  "sandbox":           { "objects": { "equipment.json": "2-11111111" } },
+  "quality_assurance": { "objects": { "equipment.json": "2-22222222" } },
+  "production":        { "objects": { "equipment.json": "2-33333333" } }
 }
 ```
 
@@ -414,22 +392,19 @@ The manifest grows one section per portal:
 
 ```bash
 # Initial setup: pull everything from your portal
-hubspot-cli schemas pull --all
-hubspot-cli properties groups pull --all
-hubspot-cli properties pull --all
+hubspot-cli objects pull --all
 hubspot-cli pipelines pull --all
 hubspot-cli associations pull --all
 hubspot-cli views pull --all
 hubspot-cli workflows pull --all
 
 # Check for portal changes before editing locally
-hubspot-cli schemas diff hubspot/schemas/equipment.json
+hubspot-cli objects diff hubspot/objects/equipment.json
 
 # Edit files under hubspot/
 
 # Push to sandbox to test
-hubspot-cli schemas push hubspot/schemas/equipment.json --env sandbox
-hubspot-cli properties push hubspot/properties/equipment.json --env sandbox
+hubspot-cli objects push hubspot/objects/equipment.json --env sandbox
 
 # Commit and push; GitHub Actions handles the rest
 git add hubspot/
@@ -440,8 +415,7 @@ git push
 For multiple portals locally, use `.env` files:
 
 ```bash
-hubspot-cli schemas push --all --env-path .env.sandbox
-hubspot-cli properties push --all --env-path .env.sandbox
+hubspot-cli objects push --all --env-path .env.sandbox
 ```
 
 ---
@@ -453,9 +427,7 @@ hubspot-cli properties push --all --env-path .env.sandbox
 3. Create `.env.client-b-prod` locally (gitignored) for local access.
 4. Run the initial deployment locally to populate the manifest:
    ```bash
-   hubspot-cli schemas push --all --env client-b-prod
-   hubspot-cli properties groups push --all --env client-b-prod
-   hubspot-cli properties push --all --env client-b-prod
+   hubspot-cli objects push --all --env client-b-prod
    hubspot-cli pipelines push --all --env client-b-prod
    hubspot-cli associations push --all --env client-b-prod
    hubspot-cli views push --all --env client-b-prod
@@ -469,14 +441,14 @@ From this point on, GitHub Actions handles deployments on every push to main.
 
 ## Troubleshooting
 
-**A schema/property/pipeline was edited directly in the HubSpot UI and is out of sync with git**
+**A config bundle was edited directly in the HubSpot UI and is out of sync with git**
 Run the resource's `diff` command to see what changed, then either pull the remote version or push the git version back.
 
 **Config is being created as duplicates instead of updated**
 The manifest (`.hubspot_cli/manifest.json`) is either missing or doesn't have an entry for that environment. Run `push` once locally with the correct `--env` flag to populate the manifest, then commit it.
 
-**`schemas push` / `workflows push` refuses to run**
-`schemas push` refuses `metaType: HUBSPOT` (standard object) targets by default — pass `--force` if you deliberately want to update a standard object's metadata, and be sure you mean it (it's a destructive full metadata replace). `workflows push` requires `HUBSPOT_ACCESS_TOKEN`; OAuth-based auth isn't accepted by the v4 flows API at all.
+**`objects push` doesn't seem to change a standard object's labels**
+Expected — `objects push` never touches schema-level fields on a `metaType: HUBSPOT` (standard) target, only property groups and properties. Pass `--force` if you deliberately want to update a standard object's metadata, and be sure you mean it (it's a destructive full metadata replace). `workflows push` requires `HUBSPOT_ACCESS_TOKEN`; OAuth-based auth isn't accepted by the v4 flows API at all.
 
 **Association `typeId` looks different between portals for what should be the same label**
 Expected — `typeId` is assigned per portal, not stable across environments (see [issue #1](https://github.com/rverheijen/hubspot-cli/issues/1)). Never hand-edit a `typeId` into an associations file; `associations push` resolves it live every time.
@@ -487,5 +459,5 @@ You used `--env-path .env.client-b-prod` but the file doesn't exist. Either crea
 **Manifest commit is failing in CI**
 Check that **Workflow permissions** is set to **Read and write** in repository settings (Settings → Actions → General).
 
-**`Error: could not resolve hubspot binary`**
+**`Error: could not find the "hubspot" binary on PATH`**
 The `hubspot` CLI isn't on `PATH`. Make sure the install step ran before any `hubspot-cli` command, and that `$HOME/.hubspot/bin` was added to `$GITHUB_PATH` in the same job.

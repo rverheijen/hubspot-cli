@@ -2,7 +2,7 @@
 
 A custom wrapper around the official [`hubspot`](https://developers.hubspot.com/docs/guides/other/agent-integrations/agent-cli) Agent CLI that adds config-as-code commands — pull/push/diff to local files, multi-environment sync, and a deployment manifest — on top of it, the same way [`n8n-cli`](https://github.com/rverheijen/n8n-cli) wraps the official n8n CLI.
 
-All official `hubspot` commands and flags pass through unchanged. This wrapper only adds new verbs on top of a handful of them. Live CRM data (`objects`, `owners`, `segments`, `imports`, ...) is untouched passthrough — this tool manages portal **configuration**, not records. (Bulk record import/export/diff is a separate, planned concern — see [issue #2](https://github.com/rverheijen/hubspot-cli/issues/2).)
+All official `hubspot` commands and flags pass through unchanged. This wrapper only adds new verbs on top of a handful of them. (Bulk record import/export/diff is a separate, planned concern — see [issue #2](https://github.com/rverheijen/hubspot-cli/issues/2).)
 
 ## Install
 
@@ -41,19 +41,13 @@ Installs the official `hubspot/agent-cli-skills` and extends them with this wrap
 
 | Command | Description |
 |---|---|
-| `schemas pull <type>` / `--all` | Save a custom object type's schema to `hubspot/schemas/<type>.json`. `--all` covers every custom type (discovered via `objects types`) |
-| `schemas push <file>` | Create a new custom object type, or update an existing one's metadata |
-| `schemas diff <file>` / `--all` | Compare local schema against remote |
-| `properties pull --type <type>` / `--all` | Save an object type's properties to `hubspot/properties/<type>.json` (standard objects: custom properties only, use `--full` for everything) |
-| `properties push <file>` | Create/update properties for an object type |
-| `properties diff <file>` / `--all` | Compare local properties against remote |
-| `properties groups pull --type <type>` / `--all` | Save property groups to `hubspot/property-groups/<type>.json` (via `@hubspot/api-client`, `hubspot` has no CLI surface for groups) |
-| `properties groups push <file>` | Create/update/delete property groups |
-| `properties groups diff <file>` / `--all` | Compare local groups against remote |
+| `objects pull <type>` / `--all` | Save an object type's schema + property groups + properties as one bundle to `hubspot/objects/<type>.json`. `--all` covers every discoverable type (via `objects types`) |
+| `objects push <file>` | Create the schema if custom and missing, then create/update groups and properties. Standard objects: schema fields are never touched, only groups/properties |
+| `objects diff <file>` / `--all` | Compare local bundle against remote |
 | `pipelines pull --type <type>` / `--all` | Save pipelines + stages to `hubspot/pipelines/<type>/<slug>.json` |
 | `pipelines push <file>` | Create/update a pipeline and its stages |
 | `pipelines diff <file>` / `--all` | Compare local pipeline+stages against remote |
-| `associations pull [--from <type> --to <type>]` / `--all` | Save custom labels + limits to `hubspot/associations/<from>_<to>.json` |
+| `associations pull [--from <type> --to <type>]` / `--all` | Save custom labels + limits to `hubspot/associations/<from>-<to>.json` |
 | `associations push <file>` | Create/update labels and limits |
 | `associations diff <file>` / `--all` | Compare local associations against remote |
 | `views pull --type <type>` / `--all` | Save saved CRM views to `hubspot/views/<type>/<slug>.json` |
@@ -64,7 +58,7 @@ Installs the official `hubspot/agent-cli-skills` and extends them with this wrap
 | `workflows diff <file>` / `--all` | Compare local workflow against remote |
 | `workflows activate <file\|id>` / `deactivate` | Sugar over `workflows update` flipping `isEnabled` |
 
-Everything else — `hubspot-cli objects list`, `hubspot-cli whoami`, `hubspot-cli segments create`, `hubspot-cli imports start`, etc. — passes straight through to the real `hubspot` binary untouched.
+Everything else under these same command names — `hubspot-cli objects list`, `hubspot-cli objects create`, `hubspot-cli objects get`, and every other resource's native subcommands (`hubspot-cli whoami`, `hubspot-cli segments create`, `hubspot-cli imports start`, etc.) — passes straight through to the real `hubspot` binary untouched. Only `pull`/`push`/`diff` (plus `activate`/`deactivate` on workflows) are new verbs this wrapper adds; everything else, including live CRM record commands under `objects`, is native `hubspot` behavior. See "Two things named `objects`" below.
 
 ---
 
@@ -84,8 +78,8 @@ HUBSPOT_ACCESS_TOKEN=pat-na1-...
 ```
 
 ```bash
-hubspot-cli schemas pull --all --env-path .env.staging
-hubspot-cli schemas pull --all --env production        # loads .env.production if present
+hubspot-cli objects pull --all --env-path .env.staging
+hubspot-cli objects pull --all --env production        # loads .env.production if present
 ```
 
 In CI, set `HUBSPOT_ACCESS_TOKEN` directly as a secret; no `.env` file needed.
@@ -100,25 +94,26 @@ In CI, set `HUBSPOT_ACCESS_TOKEN` directly as a secret; no `.env` file needed.
 | `--env-path <path>` | Load a specific `.env` file |
 | `--dir <path>` | Override the default source/target directory |
 | `--all` | Operate on all items of that resource type |
-| `--full` | On `properties pull` for a standard object, include HubSpot-defined properties too (default: custom-only) |
+| `--full` | On `objects pull` for a standard object, include HubSpot-defined properties too (default: custom-only) |
 
 ---
 
-## Two kinds of resource: schema vs. properties vs. objects
+## Two things named `objects`
 
-Worth being explicit about this, since it drives what each command does:
+Worth being explicit about this, since the same command name covers two very different concerns:
 
-- **`schemas`** = the object *type* definition (like `CREATE TABLE`): its name, labels, primary display property, required properties, associated object types. Only meaningful for **custom** object types — standard ones (`contacts`, `companies`, `deals`, ...) already exist and can't be created/deleted, only their metadata can be updated (destructively — see below), which `schemas push` refuses by default (see "Standard vs. custom objects").
-- **`properties`** = the object type's fields (like columns). Applies to **any** object type, standard or custom, and evolves independently of the schema over time.
-- **`objects`** = the actual data records (rows). Live CRM data, not configuration — pure passthrough, never pulled/pushed/diffed by this wrapper.
+- **`hubspot-cli objects pull/push/diff`** (this wrapper's added verbs) = the object *type's* config bundle: its schema (name, labels, primary display property, required properties, associated object types — only meaningful for **custom** types), its property groups, and its properties. This is the shape of the type, like a database's `CREATE TABLE` plus its columns. Rare, deliberate changes. Config-as-code.
+- **`hubspot-cli objects list/get/create/update/upsert/merge/delete/...`** (native `hubspot` passthrough, everything except pull/push/diff) = the actual data records — rows, not columns. Live CRM data, changes constantly, never git-tracked by this wrapper. (Bulk record import/export/diff is planned separately — [issue #2](https://github.com/rverheijen/hubspot-cli/issues/2).)
+
+Same top-level command name, disambiguated entirely by verb — same pattern as every other resource in this wrapper, just applied to a command name that happens to also carry live-data meaning natively.
 
 ## Standard vs. custom objects
 
-`hubspot schemas list` only enumerates **custom** schemas. To discover everything (standard + custom), `schemas pull --all` uses `hubspot objects types` first, then `hubspot schemas get --type <name>` per type — this works for both (`metaType: HUBSPOT` for standard, `PORTAL_SPECIFIC` for custom).
+`hubspot schemas list` only enumerates **custom** schemas. To discover everything (standard + custom), `objects pull --all` uses `hubspot objects types` first, then `hubspot schemas get --type <name>` per type (which returns properties embedded, for both kinds — `metaType: HUBSPOT` for standard, `PORTAL_SPECIFIC` for custom).
 
-`schemas push` **refuses to touch a `metaType: HUBSPOT` schema by default** (pass `--force` to override, with a warning). Standard schema metadata updates are marked `mutation_kind: "MetadataDestroy"` and `reversible: false` by the underlying API — pushing a locally-diverged file over it is exactly the kind of accident that's worth guarding against, not just gating behind the same confirm prompt as everything else.
+`objects push` **never touches schema-level fields (labels, primary display property, required properties, associated objects) on a `metaType: HUBSPOT` target** — those are skipped silently, regardless of what's in the local file (pass `--force` to override, with a warning). Standard schema metadata updates are marked `mutation_kind: "MetadataDestroy"` and `reversible: false` by the underlying API, so this is a deliberate guard, not an oversight. Property groups and properties are still fully created/updated for standard objects either way — adding/updating your own custom fields on `contacts` is the common case and isn't destructive to HubSpot's own fields.
 
-`properties push` works normally against standard objects — adding/updating your own custom fields on `contacts` is the common case and isn't destructive to HubSpot's own fields.
+For a **custom** object type, `objects push` creates the schema (with its initial properties) if it doesn't exist yet in the manifest, otherwise reconciles schema metadata, groups, and properties all in the same call.
 
 ---
 
@@ -126,49 +121,72 @@ Worth being explicit about this, since it drives what each command does:
 
 Nearly every mutating `hubspot` command (`schemas update/delete`, `properties update/delete`, `pipelines update/delete`, `pipelines stages-update`, `associations labels-update/delete`, `views delete`) gates real execution behind a two-step confirm: run with `--dry-run` to get a `digest`, then re-run with `--digest <hash> --confirm <exact-name>`. That's a deliberate brake for a human typing commands by hand.
 
-`hubspot-cli`'s `push` commands do this handshake **automatically and transparently** — one `hubspot-cli schemas push equipment.json` call does the dry-run, extracts the digest, and re-issues with confirm internally. This is worth knowing explicitly: `push` is authorizing a destructive confirm on your behalf. Read the diff output first if you're unsure.
+`hubspot-cli`'s `push` commands do this handshake **automatically and transparently** — one `hubspot-cli objects push equipment.json` call does the dry-run, extracts the digest, and re-issues with confirm internally, for each underlying mutation it needs to make. This is worth knowing explicitly: `push` is authorizing a destructive confirm on your behalf. Read the diff output first if you're unsure.
 
 ---
 
-## Schema commands
+## Object commands
 
-`hubspot/schemas/<type>.json` holds one custom object type's full definition (labels, primary display property, required properties, associated object types). Standard objects can be *pulled* for reference/audit but not pushed (see above).
+`hubspot/objects/<type>.json` bundles everything about one object type's shape:
 
-### `schemas pull <type>`
-
-```bash
-hubspot-cli schemas pull equipment
-hubspot-cli schemas pull contacts               # standard object, read-only snapshot
-hubspot-cli schemas pull equipment --env sandbox
+```json
+{
+  "name": "equipment",
+  "metaType": "PORTAL_SPECIFIC",
+  "labels": { "singular": "Equipment", "plural": "Equipment" },
+  "primaryDisplayProperty": "equipment_name",
+  "requiredProperties": ["equipment_name"],
+  "associatedObjects": ["contacts", "companies"],
+  "groups": [
+    { "name": "warranty", "label": "Warranty", "displayOrder": 0 }
+  ],
+  "properties": [
+    { "name": "equipment_name", "label": "Name", "type": "string", "fieldType": "text", "groupName": "equipment_information" },
+    { "name": "serial_number", "label": "Serial Number", "type": "string", "fieldType": "text", "groupName": "equipment_information" }
+  ]
+}
 ```
 
-### `schemas pull --all`
+Standard objects (`contacts`, `companies`, ...) use the same shape with `metaType: "HUBSPOT"` — the schema-level fields (`labels`, `primaryDisplayProperty`, `requiredProperties`, `associatedObjects`) are included for reference but `push` never acts on them (see "Standard vs. custom objects" above).
 
-Discovers every object type via `objects types`, fetches each with `schemas get --type <name>`, and writes one file per type.
+By default, a standard object's `properties` list is **sparse** — only custom (non-`hubspotDefined`) properties and the groups that contain them. A custom object's `properties` list is always full (there's nothing HubSpot-defined to filter). Pass `--full` to pull every HubSpot-defined property on a standard object too, for reference — they're never pushed either way.
 
-```bash
-hubspot-cli schemas pull --all
-hubspot-cli schemas pull --all --env sandbox
-```
-
-### `schemas push <file>`
-
-Creates the schema if it doesn't exist in the manifest for this environment, otherwise updates its metadata (labels, description, required properties) via the dry-run/digest/confirm handshake.
+### `objects pull <type>`
 
 ```bash
-hubspot-cli schemas push hubspot/schemas/equipment.json
-hubspot-cli schemas push hubspot/schemas/equipment.json --env production
-hubspot-cli schemas push hubspot/schemas/contacts.json   # refused: standard object (use --force to override)
+hubspot-cli objects pull equipment
+hubspot-cli objects pull contacts                # standard object, sparse (custom properties only)
+hubspot-cli objects pull contacts --full          # + every HubSpot-defined property, for reference
+hubspot-cli objects pull equipment --env sandbox
 ```
 
-### `schemas diff <file>` / `--all`
+### `objects pull --all`
+
+Discovers every object type via `objects types`, fetches each with `schemas get --type <name>` plus its property groups, and writes one bundle per type.
 
 ```bash
-hubspot-cli schemas diff hubspot/schemas/equipment.json
-hubspot-cli schemas diff --all --env production
+hubspot-cli objects pull --all
+hubspot-cli objects pull --all --full --env sandbox
 ```
 
-Exits `1` if differences are found, `0` if up to date.
+### `objects push <file>`
+
+```bash
+hubspot-cli objects push hubspot/objects/equipment.json
+hubspot-cli objects push hubspot/objects/equipment.json --env production
+hubspot-cli objects push hubspot/objects/contacts.json   # standard: only groups/properties are applied
+```
+
+Creates the schema (custom types only, with its initial properties) if missing from the manifest for this environment. Otherwise reconciles, in order: schema metadata (custom types only) → property groups (create/update; delete only if empty — HubSpot refuses to delete a non-empty group) → properties (create missing, update changed; HubSpot-defined properties are never touched even if present in a `--full`-pulled file).
+
+### `objects diff <file>` / `--all`
+
+```bash
+hubspot-cli objects diff hubspot/objects/equipment.json
+hubspot-cli objects diff --all --env production
+```
+
+Exits `1` if differences are found, `0` if up to date. Shows differences across the whole bundle (schema, groups, properties) regardless of standard/custom — `diff` is purely informational; `push` decides what it actually acts on.
 
 Example output:
 
@@ -177,80 +195,9 @@ equipment.json vs remote (env: production)
 
   labels.singular: "Equipment" -> "Asset"
   + requiredProperty: warranty_expiry
-  + associatedObject: tickets
-```
-
----
-
-## Property commands
-
-`hubspot/properties/<type>.json` holds the flat list of an object type's fields. For standard objects, only custom (non-`hubspotDefined`) properties are pulled by default — pass `--full` to also capture HubSpot's own ~400+ built-in fields for reference (they're never pushed either way, since you can't modify HubSpot-defined properties).
-
-### `properties pull --type <type>`
-
-```bash
-hubspot-cli properties pull --type contacts             # custom properties only
-hubspot-cli properties pull --type contacts --full       # + every HubSpot-defined property
-hubspot-cli properties pull --type equipment             # custom object: always full, nothing to filter
-```
-
-### `properties pull --all`
-
-```bash
-hubspot-cli properties pull --all
-hubspot-cli properties pull --all --full --env sandbox
-```
-
-### `properties push <file>`
-
-```bash
-hubspot-cli properties push hubspot/properties/contacts.json
-hubspot-cli properties push hubspot/properties/equipment.json --env production
-```
-
-Creates properties present locally but missing remotely, updates changed ones (via the confirm handshake), never touches HubSpot-defined properties even if present in a `--full` file.
-
-### `properties diff <file>` / `--all`
-
-```bash
-hubspot-cli properties diff hubspot/properties/contacts.json
-```
-
-Example output:
-
-```text
-contacts.json vs remote (env: production)
-
+  + group: warranty
   + acd_form_tag (enumeration)
-  ~ account_type: options ["Persoonlijk","Zakelijk"] -> ["Persoonlijk","Zakelijk","Onbekend"]
-  - stale_lead_score (removed locally, still present remotely)
-```
-
----
-
-## Property group commands
-
-No native `hubspot properties groups-*` command exists, so this resource is implemented via `@hubspot/api-client`'s `crm.properties.groupsApi` directly instead of shelling out. `hubspot/property-groups/<type>.json` holds the group list for one object type.
-
-### `properties groups pull --type <type>` / `--all`
-
-```bash
-hubspot-cli properties groups pull --type contacts
-hubspot-cli properties groups pull --all --env sandbox
-```
-
-### `properties groups push <file>`
-
-```bash
-hubspot-cli properties groups push hubspot/property-groups/contacts.json
-```
-
-Creates missing groups, updates changed labels/order, deletes local-removed groups (only if empty — HubSpot refuses to delete a group with properties still assigned to it).
-
-### `properties groups diff <file>` / `--all`
-
-```bash
-hubspot-cli properties groups diff hubspot/property-groups/contacts.json
+  ~ serial_number: label "Serial Number" -> "Serial #"
 ```
 
 ---
@@ -295,7 +242,7 @@ sales_pipeline.json vs remote (env: production)
 
 ## Association commands
 
-`hubspot/associations/<from>_<to>.json` holds custom labels and limit configs for one object-type pair. `push` resolves each label's `typeId` **live** rather than trusting a value in the file — `typeId` is assigned per portal, not stable across environments (see [issue #1](https://github.com/rverheijen/hubspot-cli/issues/1) for the concrete case that surfaced this).
+`hubspot/associations/<from>-<to>.json` holds custom labels and limit configs for one object-type pair. `push` resolves each label's `typeId` **live** rather than trusting a value in the file — `typeId` is assigned per portal, not stable across environments (see [issue #1](https://github.com/rverheijen/hubspot-cli/issues/1) for the concrete case that surfaced this).
 
 ### `associations pull --from <type> --to <type>` / `--all`
 
@@ -307,7 +254,7 @@ hubspot-cli associations pull --all --env sandbox   # every discoverable pair wi
 ### `associations push <file>`
 
 ```bash
-hubspot-cli associations push hubspot/associations/contacts_companies.json --env production
+hubspot-cli associations push hubspot/associations/contacts-companies.json --env production
 ```
 
 Config shape:
@@ -316,21 +263,24 @@ Config shape:
 {
   "from": "contacts",
   "to": "companies",
+  "cardinality": "M:M",
   "labels": [{ "label": "Decision Maker" }],
   "limits": { "category": "USER_DEFINED", "maxToObjectIds": 1 }
 }
 ```
 
+`cardinality` is a descriptive, human-readable summary (`1:1`, `1:M`, `M:1`, `M:M`) derived from `limits` on pull — it isn't itself a HubSpot API field, and `push` doesn't read it; it's there so the relationship's shape is obvious at a glance without mentally decoding `maxToObjectIds`.
+
 ### `associations diff <file>` / `--all`
 
 ```bash
-hubspot-cli associations diff hubspot/associations/contacts_companies.json
+hubspot-cli associations diff hubspot/associations/contacts-companies.json
 ```
 
 Example output:
 
 ```text
-contacts_companies.json vs remote (env: production)
+contacts-companies.json vs remote (env: production)
 
   + label: Gatekeeper
   ~ limit: maxToObjectIds 1 -> 2
@@ -409,11 +359,11 @@ hubspot-cli workflows activate 12345678   # raw ID
 ```json
 {
   "sandbox": {
-    "schemas": { "equipment.json": "2-12345678" },
+    "objects": { "equipment.json": "2-12345678" },
     "pipelines": { "deals/sales_pipeline.json": "default" }
   },
   "production": {
-    "schemas": { "equipment.json": "2-98765432" },
+    "objects": { "equipment.json": "2-98765432" },
     "pipelines": { "deals/sales_pipeline.json": "55f2a1b0" }
   }
 }
@@ -427,25 +377,22 @@ hubspot-cli workflows activate 12345678   # raw ID
 
 ```text
 hubspot/
-  schemas/
-    equipment.json
-  properties/
-    contacts.json
-    equipment.json
-  property-groups/
+  objects/
     contacts.json
     equipment.json
   pipelines/
     deals/
       sales_pipeline.json
   associations/
-    contacts_companies.json
+    contacts-companies.json
   views/
     deals/
       all_open_deals.json
   workflows/
     lead_routing.json
 ```
+
+`--dir` can nest these however you prefer (e.g. grouping object bundles by business domain) — the flat layout above is just the default.
 
 ---
 
