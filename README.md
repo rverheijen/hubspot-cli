@@ -84,7 +84,7 @@ HUBSPOT_ACCESS_TOKEN=pat-na1-...
 ```
 
 ```bash
-hubspot-cli schemas pull --all --env-file .env.staging
+hubspot-cli schemas pull --all --env-path .env.staging
 hubspot-cli schemas pull --all --env production        # loads .env.production if present
 ```
 
@@ -97,7 +97,7 @@ In CI, set `HUBSPOT_ACCESS_TOKEN` directly as a secret; no `.env` file needed.
 | Flag | Description |
 |---|---|
 | `--env <name>` | Environment name (manifest key, loads `.env.<name>` if present) |
-| `--env-file <path>` | Load a specific `.env` file |
+| `--env-path <path>` | Load a specific `.env` file |
 | `--dir <path>` | Override the default source/target directory |
 | `--all` | Operate on all items of that resource type |
 | `--full` | On `properties pull` for a standard object, include HubSpot-defined properties too (default: custom-only) |

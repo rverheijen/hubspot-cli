@@ -16,6 +16,9 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "dependencies": {
+    "dotenv": "^18.0.3"
+  },
   "keywords": [
     "hubspot",
     "hubspot-cli",

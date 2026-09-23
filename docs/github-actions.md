@@ -440,8 +440,8 @@ git push
 For multiple portals locally, use `.env` files:
 
 ```bash
-hubspot-cli schemas push --all --env-file .env.sandbox
-hubspot-cli properties push --all --env-file .env.sandbox
+hubspot-cli schemas push --all --env-path .env.sandbox
+hubspot-cli properties push --all --env-path .env.sandbox
 ```
 
 ---
@@ -482,7 +482,7 @@ The manifest (`.hubspot_cli/manifest.json`) is either missing or doesn't have an
 Expected — `typeId` is assigned per portal, not stable across environments (see [issue #1](https://github.com/rverheijen/hubspot-cli/issues/1)). Never hand-edit a `typeId` into an associations file; `associations push` resolves it live every time.
 
 **`Error: env file not found`**
-You used `--env-file .env.client-b-prod` but the file doesn't exist. Either create the file or use `--env client-b-prod` (which only requires the file if it exists, and falls back to shell env vars).
+You used `--env-path .env.client-b-prod` but the file doesn't exist. Either create the file or use `--env client-b-prod` (which only requires the file if it exists, and falls back to shell env vars).
 
 **Manifest commit is failing in CI**
 Check that **Workflow permissions** is set to **Read and write** in repository settings (Settings → Actions → General).
