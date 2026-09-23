@@ -17,6 +17,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@hubspot/api-client": "^14.0.1",
     "dotenv": "^18.0.3"
   },
   "keywords": [
