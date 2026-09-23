@@ -62,6 +62,10 @@ Everything else under these same command names — `hubspot-cli objects list`, `
 
 ## Configuration
 
+### Authentication
+
+Because `hubspot-cli` wraps the official `hubspot` binary directly, it inherits that binary's own login flow for free. For interactive use, run `hubspot auth login` once (a normal browser-based OAuth login) and no private app or API key ever needs to be created at all. For CI or any scripted use, set `HUBSPOT_ACCESS_TOKEN` instead, as described below.
+
 ### Environment variables
 
 | Variable | Description |
