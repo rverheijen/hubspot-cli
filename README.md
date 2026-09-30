@@ -192,6 +192,10 @@ hubspot-cli objects push hubspot/objects/contacts.json   # standard: only groups
 
 Creates the schema (custom types only, with its initial properties, in one call) if it doesn't exist yet. Otherwise reconciles, in order: property groups (create missing; update label/order changes — no deletion yet) → properties (create missing via `properties batch-create`; update changed `label`/`groupName` only — that's all `hubspot properties update` actually supports, other field changes are reported but not applied; HubSpot-defined properties are never touched even if present in a `--full`-pulled file) → schema metadata drift is *reported*, not applied (see "Push safety" above).
 
+A property's `dataSensitivity` (`"sensitive"` / `"highly_sensitive"`) is a **create-time-only** field, confirmed live and matching HubSpot's own docs ("Ensure the dataSensitivity field is set to indicate sensitivity during the property creation process"). Set it in a new property's definition and `objects push` includes it in the `batch-create` call like any other field, no special handling needed. For a property that already exists, HubSpot rejects any attempt to change it outright, even archiving and recreating one under the same name — actually changing an existing property's sensitivity is a real migration (archive it, then create a differently-named replacement), not something this update path attempts.
+
+`dataSensitivity` is also silently excluded from both `objects diff` and `push`'s own drift reporting, unlike every other unsupported-update field. `schemas get` (what both commands use for remote property state) never includes `dataSensitivity` in a property's payload at all — confirmed live, only the dedicated `GET /crm/v3/properties/{type}/{name}?dataSensitivity=<level>` call returns it. Comparing against it would always see the remote side as missing and report drift even when it's already set correctly, so it's left out entirely rather than generate permanent false noise.
+
 ### `objects diff <file>` / `--all`
 
 ```bash
