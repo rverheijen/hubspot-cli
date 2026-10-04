@@ -26,12 +26,14 @@ npm uninstall -g hubspot-cli
 
 ## Use as skill with your coding agent
 
+> **Planned, not implemented yet.** Tracked in [#7](https://github.com/rverheijen/hubspot-cli/issues/7).
+
 ```bash
-hubspot-cli skill install          # install to the current project
-hubspot-cli skill install --global # install globally to ~/.claude/skills/
+hubspot-cli skill install          # install to the current project (.claude/skills/hubspot-cli/)
+hubspot-cli skill install --global # install globally to ~/.claude/skills/hubspot-cli/
 ```
 
-Installs the official `hubspot/agent-cli-skills` and extends them with this wrapper's own commands, so your coding agent knows about both layers.
+This will install a standalone `hubspot-cli` skill that sits next to HubSpot's own `hubspot/agent-cli-skills` rather than extending them, because the official `hubspot` binary has no `skill install` command of its own to hook into. It will teach your coding agent this wrapper's config-as-code commands, the manifest, `.env` handling and the known push caveats. Until then, install HubSpot's official skills with `npx skills add hubspot/agent-cli-skills`.
 
 ---
 
