@@ -1,8 +1,8 @@
 # hubspot-cli
 
-A custom wrapper around the official [`hubspot`](https://developers.hubspot.com/docs/guides/other/agent-integrations/agent-cli) Agent CLI that adds config-as-code commands — pull/push/diff to local files, multi-environment sync, and a deployment manifest — on top of it, the same way [`n8n-cli`](https://github.com/rverheijen/n8n-cli) wraps the official n8n CLI.
+A custom wrapper around the official [`hubspot`](https://developers.hubspot.com/docs/guides/other/agent-integrations/agent-cli) Agent CLI that brings our CI/CD best practices through deployment, diffing, multi-environment sync, and deployment-manifest commands, the same way [`n8n-cli`](https://github.com/rverheijen/n8n-cli) wraps the official n8n CLI.
 
-All official `hubspot` commands and flags pass through unchanged. This wrapper only adds new verbs on top of a handful of them. (Bulk record import/export/diff is a separate, planned concern — see [issue #2](https://github.com/rverheijen/hubspot-cli/issues/2).)
+All official `hubspot` commands and flags pass through unchanged. This wrapper adds CI/CD-oriented commands on top. (Bulk record import/export/diff is a separate, planned concern — see [issue #2](https://github.com/rverheijen/hubspot-cli/issues/2).)
 
 ## Install
 
