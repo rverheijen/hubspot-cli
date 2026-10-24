@@ -166,6 +166,8 @@ Standard objects (`contacts`, `companies`, ...) use the same shape with `metaTyp
 
 By default, `properties` is **sparse** — only non-`hubspotDefined` properties and the groups that contain them. This applies to every object type, not just standard ones: even a freshly created custom object carries ~30 HubSpot-managed boilerplate properties (`hs_object_id`, `hs_createdate`, `hubspot_owner_id`, ...), all marked `hubspotDefined: true` — confirmed by pulling one live. Pass `--full` to also pull those, for reference — they're never pushed either way.
 
+A group kept in a sparse pull isn't necessarily something the portal created — it's just wherever a surviving custom property happens to live, which can be an existing HubSpot default group (`contactinformation`, say) that a custom field was later dropped into. HubSpot's groups API has no equivalent of `hubspotDefined` for groups themselves to tell the two apart directly (confirmed live, a raw `groupsApi.getAll()` response only has `name`/`label`/`displayOrder`/`archived`). The closest available signal: a kept group gets an informational `"sharedWithStandard": true` field (sparse mode only, never pushed) when it also contains at least one `hubspotDefined` property, found by cross-referencing against the full property list fetched either way before the sparse filter is applied.
+
 ### `objects pull <type>`
 
 ```bash
