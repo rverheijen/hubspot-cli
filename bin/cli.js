@@ -2,7 +2,7 @@
 
 import { runHubspot } from '../lib/run.js';
 import { parseGlobalFlags, loadEnvFile, buildEnv, deriveEnvName } from '../lib/env.js';
-import { pullObject, pullAllObjects, fetchObjectBundle, readObjectBundle, listLocalObjectFiles } from '../lib/objects.js';
+import { pullObject, pullAllObjects, fetchObjectBundle, readObjectBundle, listLocalObjectFiles, objectFullBundlePath } from '../lib/objects.js';
 import { diffObjectBundles, hasDifferences, formatObjectDiff } from '../lib/diff.js';
 import { pushObject } from '../lib/push.js';
 import {
@@ -11,7 +11,7 @@ import {
   pushAssociationBundle, listLocalAssociationFiles, associationFilePath,
 } from '../lib/associations.js';
 
-const { remaining: args, envFile, envName, dir, all, full, force } = parseGlobalFlags(process.argv.slice(2));
+const { remaining: args, envFile, envName, dir, all, full, both, force } = parseGlobalFlags(process.argv.slice(2));
 
 loadEnvFile(envFile, envName);
 const env = buildEnv();
@@ -22,6 +22,7 @@ const currentEnvName = deriveEnvName(envFile, envName);
 // hubspot CLI.
 const ADDED_COMMANDS = [
   'objects pull <type> / --all   Save an object\'s schema + property groups + properties to hubspot/objects/',
+  'objects pull --both           Alongside --all or <type>: also write a full-reference <type>.full.json',
   'objects diff <file> / --all   Compare a local object bundle against remote',
   'objects push <file> / --all   Create/update an object\'s schema, property groups, and properties',
   'associations pull --from <type> --to <type> / --all   Save custom labels + limits to hubspot/associations/',
@@ -55,12 +56,18 @@ if (args[0] === 'objects' && args[1] === 'pull') {
     process.exit(1);
   }
 
+  if (full && both) {
+    console.error('--full and --both are mutually exclusive: --both already writes both forms.');
+    process.exit(1);
+  }
+
   if (all) {
-    const results = await pullAllObjects({ full, dir, env, envName: currentEnvName });
+    const results = await pullAllObjects({ full, both, dir, env, envName: currentEnvName });
     let failed = false;
     for (const r of results) {
       if (r.ok) {
         console.log(`Pulled ${r.type} -> ${r.filePath}`);
+        if (both) console.log(`  (full reference -> ${objectFullBundlePath(r.type, dir)})`);
       } else {
         failed = true;
         console.error(`Failed ${r.type}: ${r.error}`);
@@ -68,8 +75,9 @@ if (args[0] === 'objects' && args[1] === 'pull') {
     }
     process.exit(failed ? 1 : 0);
   } else {
-    const filePath = await pullObject(type, { full, dir, env, envName: currentEnvName });
+    const filePath = await pullObject(type, { full, both, dir, env, envName: currentEnvName });
     console.log(`Pulled ${type} -> ${filePath}`);
+    if (both) console.log(`  (full reference -> ${objectFullBundlePath(type, dir)})`);
     process.exit(0);
   }
 }

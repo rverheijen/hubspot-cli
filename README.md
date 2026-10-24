@@ -98,7 +98,8 @@ In CI, set `HUBSPOT_ACCESS_TOKEN` directly as a secret; no `.env` file needed.
 | `--env-path <path>` | Load a specific `.env` file |
 | `--dir <path>` | Override the default source/target directory |
 | `--all` | Operate on all items of that resource type |
-| `--full` | On `objects pull` for a standard object, include HubSpot-defined properties too (default: custom-only) |
+| `--full` | On `objects pull`, include HubSpot-defined properties too (default: custom-only) |
+| `--both` | On `objects pull`, write both the tailored sparse bundle and a `<type>.full.json` full reference in one run |
 
 ---
 
@@ -168,12 +169,15 @@ By default, `properties` is **sparse** — only non-`hubspotDefined` properties 
 
 A group kept in a sparse pull isn't necessarily something the portal created — it's just wherever a surviving custom property happens to live, which can be an existing HubSpot default group (`contactinformation`, say) that a custom field was later dropped into. HubSpot's groups API has no equivalent of `hubspotDefined` for groups themselves to tell the two apart directly (confirmed live, a raw `groupsApi.getAll()` response only has `name`/`label`/`displayOrder`/`archived`). The closest available signal: a kept group gets an informational `"sharedWithStandard": true` field (sparse mode only, never pushed) when it also contains at least one `hubspotDefined` property, found by cross-referencing against the full property list fetched either way before the sparse filter is applied.
 
+`--full` and the tailored sparse output are otherwise mutually exclusive per run, both written to the same path — getting both meant running `pull` twice and juggling `--dir` by hand to avoid the second run clobbering the first (issue #8). `--both` writes both from a single schema/groups fetch instead: the tailored bundle at the normal path (`hubspot/objects/<type>.json`, what `diff`/`push`/`--all` actually track) and the full reference alongside it at `hubspot/objects/<type>.full.json`. The `.full.json` file is deliberately excluded from `listLocalObjectFiles` (so `objects diff --all`/`objects push --all` never pick it up) — it's a point-in-time reference, not a bundle meant to be pushed. `--full` and `--both` are mutually exclusive (`--both` already covers what `--full` would give you).
+
 ### `objects pull <type>`
 
 ```bash
 hubspot-cli objects pull equipment                # sparse by default, same as any object type
 hubspot-cli objects pull contacts                  # sparse (custom properties only)
 hubspot-cli objects pull contacts --full           # + every HubSpot-defined property, for reference
+hubspot-cli objects pull contacts --both           # writes contacts.json (sparse) + contacts.full.json (full), one fetch
 hubspot-cli objects pull equipment --env sandbox
 ```
 
@@ -184,6 +188,7 @@ Discovers every object type via `objects types`, fetches each with `schemas get 
 ```bash
 hubspot-cli objects pull --all
 hubspot-cli objects pull --all --full --env sandbox
+hubspot-cli objects pull --all --both --env sandbox
 ```
 
 ### `objects push <file>`
