@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import os from 'os';
 import { runHubspot } from '../lib/run.js';
 import { parseGlobalFlags, loadEnvFile, buildEnv, deriveEnvName } from '../lib/env.js';
 import { pullObject, pullAllObjects, fetchObjectBundle, readObjectBundle, listLocalObjectFiles, objectFullBundlePath } from '../lib/objects.js';
@@ -32,6 +36,7 @@ const ADDED_COMMANDS = [
   'properties validations list --type <object> [--name <property>]   List validation rules (object-wide or one property)',
   'properties validations get --type <object> --name <property> --rule-type <TYPE>   Show one validation rule',
   'properties validations set --type <object> --name <property> --rule-type <TYPE> --args <v> [--args <v> ...]   Create/replace one validation rule',
+  'skill install [--global]   Write the hubspot-cli reference skill to .claude/skills/ (or ~/.claude/skills/ with --global)',
 ];
 
 // top-level --help / -h / no args
@@ -48,6 +53,28 @@ if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
 
   const result = runHubspot(args.length === 0 ? ['--help'] : args, { env, stdio: 'inherit' });
   process.exit(result.status ?? 0);
+}
+
+// skill install [--global]
+if (args[0] === 'skill' && args[1] === 'install') {
+  const global = args.includes('--global');
+  const targetDir = global
+    ? path.join(os.homedir(), '.claude', 'skills', 'hubspot-cli')
+    : path.join('.claude', 'skills', 'hubspot-cli');
+  const targetPath = path.join(targetDir, 'SKILL.md');
+
+  // The official hubspot binary has no skill install command of its own to
+  // extend (unlike n8n-cli, which passes through to @n8n/cli's own skill
+  // install then appends a wrapper-extension file onto the same generated
+  // SKILL.md) - this is a fully standalone skill instead, written directly,
+  // same pattern as the existing hubspot-naming-conventions skill (issue #7).
+  const contentPath = fileURLToPath(new URL('../lib/skill-content.md', import.meta.url));
+  const content = fs.readFileSync(contentPath, 'utf8');
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.writeFileSync(targetPath, content);
+  console.log(`Installed to ${targetPath}`);
+  process.exit(0);
 }
 
 // objects pull <type> / --all

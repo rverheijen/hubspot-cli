@@ -26,14 +26,12 @@ npm uninstall -g hubspot-cli
 
 ## Use as skill with your coding agent
 
-> **Planned, not implemented yet.** Tracked in [#7](https://github.com/rverheijen/hubspot-cli/issues/7).
-
 ```bash
 hubspot-cli skill install          # install to the current project (.claude/skills/hubspot-cli/)
 hubspot-cli skill install --global # install globally to ~/.claude/skills/hubspot-cli/
 ```
 
-This will install a standalone `hubspot-cli` skill that sits next to HubSpot's own `hubspot/agent-cli-skills` rather than extending them, because the official `hubspot` binary has no `skill install` command of its own to hook into. It will teach your coding agent this wrapper's config-as-code commands, the manifest, `.env` handling and the known push caveats. Until then, install HubSpot's official skills with `npx skills add hubspot/agent-cli-skills`.
+This installs a standalone `hubspot-cli` skill (`lib/skill-content.md`) that sits next to HubSpot's own `hubspot/agent-cli-skills` rather than extending them, because the official `hubspot` binary has no `skill install` command of its own to hook into (unlike `n8n-cli`, which passes through to `@n8n/cli`'s own `skill install` and appends a wrapper-extension file onto the same generated `SKILL.md` — see [issue #7](https://github.com/rverheijen/hubspot-cli/issues/7)). It teaches your coding agent this wrapper's actually-implemented commands (`objects`, `associations`, `properties validations`), the manifest, `.env` handling, and the known push caveats — deliberately scoped to what's real today, not the richer task-oriented skillset issue #7 also describes (drift audits across portals, sandbox→production promotion, bulk object migration), which stays deferred until more of the five planned config-as-code resources exist. Install HubSpot's own official skills separately with `npx skills add hubspot/agent-cli-skills`.
 
 ---
 
@@ -44,12 +42,18 @@ This will install a standalone `hubspot-cli` skill that sits next to HubSpot's o
 | `objects pull <type>` / `--all` | Save an object type's schema + property groups + properties as one bundle to `hubspot/objects/<type>.json`. `--all` covers every discoverable type (via `objects types`) |
 | `objects push <file>` | Create the schema if custom and missing, then create/update groups and properties. Standard objects: schema fields are never touched, only groups/properties |
 | `objects diff <file>` / `--all` | Compare local bundle against remote |
-| `pipelines pull --type <type>` / `--all` | Save pipelines + stages to `hubspot/pipelines/<type>/<slug>.json` |
-| `pipelines push <file>` | Create/update a pipeline and its stages |
-| `pipelines diff <file>` / `--all` | Compare local pipeline+stages against remote |
 | `associations pull [--from <type> --to <type>]` / `--all` | Save custom labels + limits to `hubspot/associations/<from>-<to>.json` |
 | `associations push <file>` | Create/update labels and limits |
 | `associations diff <file>` / `--all` | Compare local associations against remote |
+| `properties validations list/get/set` | Wraps the Property Validations API directly (no official CLI equivalent at all) |
+
+**Planned, not implemented yet** (roadmap only — no code exists behind any of these; don't attempt them):
+
+| Command | Description |
+|---|---|
+| `pipelines pull --type <type>` / `--all` | Save pipelines + stages to `hubspot/pipelines/<type>/<slug>.json` |
+| `pipelines push <file>` | Create/update a pipeline and its stages |
+| `pipelines diff <file>` / `--all` | Compare local pipeline+stages against remote |
 | `views pull --type <type>` / `--all` | Save saved CRM views to `hubspot/views/<type>/<slug>.json` |
 | `views push <file>` | Create/update a view's columns |
 | `views diff <file>` / `--all` | Compare local view against remote |
@@ -236,6 +240,8 @@ equipment.json vs remote (env: production)
 
 ## Pipeline commands
 
+> **Planned, not implemented yet.** No code exists behind any of this section — documented ahead of time as the intended shape, same as the View and Workflow command sections below.
+
 `hubspot/pipelines/<type>/<slug>.json` holds one pipeline and its full stage list together (pushing a pipeline without its stages isn't meaningful).
 
 ### `pipelines pull --type <type>` / `--all`
@@ -375,6 +381,8 @@ Not yet folded into `objects pull`/`diff`/`push` bundles — a bundle can still 
 
 ## View commands
 
+> **Planned, not implemented yet.** No code exists behind this section either — see the Pipeline commands note above.
+
 `hubspot/views/<type>/<slug>.json` holds one saved CRM view's columns, filters, and sort.
 
 ### `views pull --type <type>` / `--all`
@@ -401,6 +409,8 @@ hubspot-cli views diff hubspot/views/deals/all_open_deals.json
 ---
 
 ## Workflow commands
+
+> **Planned, not implemented yet.** No code exists behind this section either — see the Pipeline commands note above.
 
 `hubspot/workflows/<slug>.json` holds one v4 flow. `hubspot workflows list` only returns v4 flows — classic v3 contact-based workflows aren't covered by `hubspot` and aren't pulled by this wrapper either.
 
