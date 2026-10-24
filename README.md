@@ -288,11 +288,17 @@ Config shape:
   "to": "companies",
   "cardinality": "M:M",
   "labels": [{ "label": "Decision Maker", "name": "DECISION_MAKER" }],
-  "limits": { "category": "USER_DEFINED", "maxToObjectIds": 1 }
+  "limits": { "label": "Decision Maker", "category": "USER_DEFINED", "maxToObjectIds": 1 }
 }
 ```
 
-`cardinality` is a descriptive, human-readable summary (`M:1` or `M:M`, derived from whether `limits.maxToObjectIds` is `1`) - it isn't itself a HubSpot API field, and `push` doesn't read it; it's there so the relationship's shape is obvious at a glance without mentally decoding `maxToObjectIds`. `limits` applies to the bundle's first `labels[]` entry - the file format carries one `limits` object per pair, not one per label, so a bundle with more than one custom label and a meaningful per-label cap isn't representable yet.
+`cardinality` is a descriptive, human-readable summary (`M:1` or `M:M`, derived from whether `limits.maxToObjectIds` is `1`) - it isn't itself a HubSpot API field, and `push` doesn't read it; it's there so the relationship's shape is obvious at a glance without mentally decoding `maxToObjectIds`. `limits` carries one object per pair, not one per label, so a bundle with more than one custom label and a meaningful per-label cap isn't representable yet.
+
+`limits.label` names which association type the limit applies to, and falls back to the bundle's first `labels[]` entry if omitted (the common case, one label and one limit together). It's also how to cap an existing `HUBSPOT_DEFINED` association type with `labels: []` and no custom labels at all - e.g. the default association type HubSpot already creates via `schemas create`'s `associatedObjects` for a brand-new custom object:
+
+```json
+{ "from": "equipment", "to": "contacts", "cardinality": "M:1", "labels": [], "limits": { "label": "Equipment to Contact", "category": "HUBSPOT_DEFINED", "maxToObjectIds": 1 } }
+```
 
 `name` on a label is derived (upper-cased, non-alphanumeric runs collapsed to `_`) rather than something the API returns - confirmed live, `labels-list` only returns `{typeId, label, category, fromObjectTypeId, toObjectTypeId}`, no `name` field at all; `name` only exists because `labels-create` auto-derives it from `label` the same way, confirmed in issue #1.
 
