@@ -119,6 +119,11 @@ if (args[0] === 'objects' && args[1] === 'push') {
       for (const m of messages) console.log(`  ${m}`);
       return true;
     } catch (err) {
+      // err.messages/.objectTypeId are attached by pushObject on a partial
+      // property-level failure, so progress that did succeed is still
+      // visible here instead of being silently lost behind the error.
+      if (err.objectTypeId) console.log(`${filePath} -> ${err.objectTypeId}`);
+      if (err.messages) for (const m of err.messages) console.log(`  ${m}`);
       console.error(`${filePath}: ${err.message}`);
       return false;
     }
