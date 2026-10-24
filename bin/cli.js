@@ -10,6 +10,7 @@ import {
   diffAssociationBundle, hasAssociationDifferences, formatAssociationDiff,
   pushAssociationBundle, listLocalAssociationFiles, associationFilePath,
 } from '../lib/associations.js';
+import { fetchObjectValidations, fetchPropertyValidations, fetchValidationRule, setValidationRule } from '../lib/validations.js';
 
 const { remaining: args, envFile, envName, dir, all, full, both, force } = parseGlobalFlags(process.argv.slice(2));
 
@@ -28,6 +29,9 @@ const ADDED_COMMANDS = [
   'associations pull --from <type> --to <type> / --all   Save custom labels + limits to hubspot/associations/',
   'associations diff <file> / --all   Compare a local association bundle against remote',
   'associations push <file>   Create missing labels and apply limits for one from->to pair',
+  'properties validations list --type <object> [--name <property>]   List validation rules (object-wide or one property)',
+  'properties validations get --type <object> --name <property> --rule-type <TYPE>   Show one validation rule',
+  'properties validations set --type <object> --name <property> --rule-type <TYPE> --args <v> [--args <v> ...]   Create/replace one validation rule',
 ];
 
 // top-level --help / -h / no args
@@ -235,6 +239,78 @@ if (args[0] === 'associations' && args[1] === 'push') {
     console.error(`${file}: ${err.message}`);
     process.exit(1);
   }
+}
+
+// properties validations list / get / set
+if (args[0] === 'properties' && args[1] === 'validations') {
+  const subcommand = args[2];
+  let type = null;
+  let name = null;
+  let ruleType = null;
+  const ruleArguments = [];
+  for (let i = 3; i < args.length; i++) {
+    if (args[i] === '--type') type = args[++i];
+    else if (args[i] === '--name') name = args[++i];
+    else if (args[i] === '--rule-type') ruleType = args[++i];
+    else if (args[i] === '--args') ruleArguments.push(args[++i]);
+  }
+
+  if (subcommand === 'list') {
+    if (!type) {
+      console.error('Usage: hubspot-cli properties validations list --type <object> [--name <property>]');
+      process.exit(1);
+    }
+    try {
+      if (name) {
+        const rules = await fetchPropertyValidations(type, name, env);
+        console.log(JSON.stringify(rules, null, 2));
+      } else {
+        const results = await fetchObjectValidations(type, env);
+        console.log(JSON.stringify(results, null, 2));
+      }
+      process.exit(0);
+    } catch (err) {
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
+  if (subcommand === 'get') {
+    if (!type || !name || !ruleType) {
+      console.error('Usage: hubspot-cli properties validations get --type <object> --name <property> --rule-type <TYPE>');
+      process.exit(1);
+    }
+    try {
+      const rule = await fetchValidationRule(type, name, ruleType, env);
+      if (!rule) {
+        console.error(`No ${ruleType} rule set on ${type}.${name}`);
+        process.exit(1);
+      }
+      console.log(JSON.stringify(rule, null, 2));
+      process.exit(0);
+    } catch (err) {
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
+  if (subcommand === 'set') {
+    if (!type || !name || !ruleType || ruleArguments.length === 0) {
+      console.error('Usage: hubspot-cli properties validations set --type <object> --name <property> --rule-type <TYPE> --args <v> [--args <v> ...]');
+      process.exit(1);
+    }
+    try {
+      await setValidationRule(type, name, ruleType, ruleArguments, env);
+      console.log(`~ ${type}.${name}: ${ruleType} rule set`);
+      process.exit(0);
+    } catch (err) {
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
+  console.error('Usage: hubspot-cli properties validations <list|get|set> ...');
+  process.exit(1);
 }
 
 // Everything else passes straight through to the real hubspot binary.

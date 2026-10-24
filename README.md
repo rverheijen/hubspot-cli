@@ -330,6 +330,47 @@ contacts-companies.json vs remote (env: production)
 
 ---
 
+## Property validation commands
+
+Property-level validation rules (regex/format/length constraints enforced on data entry) live in a separate, newer API entirely (`/crm/property-validations/2026-03/...`), not the standard property-read endpoints — confirmed live, `GET /crm/v3/properties/{type}/{name}` and the legacy `/properties/v2/.../named/{name}` both omit validation rules completely, and the official hubspot CLI has no flag or subcommand for them at all (see issue #15). These commands wrap that API directly with raw `fetch` calls, same pattern as `objects push`'s raw-API property updates and `associations push`'s limits handling.
+
+`--type` accepts a standard object's plain name directly (confirmed live, e.g. `companies`) — a custom object needs its numeric `objectTypeId` instead (confirmed live, a custom object's plain name is rejected outright with `"Unable to infer object type from: <name>"`); either form is resolved automatically from `objects types` if you pass a name, numeric IDs are passed through unchanged.
+
+There's no delete — confirmed live, `DELETE` on a rule's URL returns `405 Method Not Allowed`. Removing a rule for real isn't something this API supports.
+
+A validation rule on an archived property isn't cleared by archiving it — confirmed live, `properties validations list` continued showing a rule for a property that had already been archived via `properties delete`. Worth knowing if a property gets archived and recreated under the same name later.
+
+### `properties validations list --type <object> [--name <property>]`
+
+Without `--name`, lists every property on the object that has at least one rule. With `--name`, lists just that property's rules (an empty array if it has none — confirmed live this is a normal `200`, not a `404`).
+
+```bash
+hubspot-cli properties validations list --type companies
+hubspot-cli properties validations list --type companies --name vat_number
+```
+
+### `properties validations get --type <object> --name <property> --rule-type <TYPE>`
+
+Shows one rule. Exits non-zero with a plain message (not a stack trace) if that rule type isn't set on the property — confirmed live this case is a `404` with an HTML body, not JSON, so it's treated as "not set" rather than surfaced as a raw fetch error.
+
+```bash
+hubspot-cli properties validations get --type companies --name vat_number --rule-type REGEX
+```
+
+### `properties validations set --type <object> --name <property> --rule-type <TYPE> --args <v> [--args <v> ...]`
+
+Creates or replaces one rule (confirmed live: `204 No Content` on success, same call either way — there's no separate create vs. update). For `REGEX`, the real response shape is `[pattern, short error message, longer multi-line guidance text]` — confirmed live this is 3 arguments, not the 2 (pattern + one message) HubSpot's own docs example shows.
+
+```bash
+hubspot-cli properties validations set --type companies --name vat_number --rule-type REGEX \
+  --args '^(?:AE|AT|...)(?:[0-9A-Z]{2,20})$' \
+  --args 'Starts with a country code followed by 2-20 alphanumeric characters.'
+```
+
+Not yet folded into `objects pull`/`diff`/`push` bundles — a bundle can still silently drift from what's actually enforced on the portal with no way for `objects diff` to catch it. Worth a follow-up if validation rules turn out to matter for more than one or two properties at a time.
+
+---
+
 ## View commands
 
 `hubspot/views/<type>/<slug>.json` holds one saved CRM view's columns, filters, and sort.
