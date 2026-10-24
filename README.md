@@ -263,12 +263,16 @@ sales_pipeline.json vs remote (env: production)
 
 `hubspot/associations/<from>-<to>.json` holds custom labels and limit configs for one object-type pair. `push` resolves each label's `typeId` **live** rather than trusting a value in the file — `typeId` is assigned per portal, not stable across environments (see [issue #1](https://github.com/rverheijen/hubspot-cli/issues/1) for the concrete case that surfaced this).
 
+These commands are implemented directly against the raw API in `lib/associations.js`, not by shelling out to the official `hubspot associations labels-create`/`limits-create`/`limits-update` subcommands for every step. Confirmed live: `limits-create`/`limits-update`'s own local input validator only accepts the shape their `--help` text documents (`{associationTypeId, maxToObjectCount}`), but the real API only accepts a different shape (`{category, typeId, maxToObjectIds}`) - the CLI only accepts the shape the API rejects, and rejects the shape the API accepts, so no input makes those two subcommands work at all (see [issue #17](https://github.com/rverheijen/hubspot-cli/issues/17)). Limits are applied via the real endpoint directly instead (`POST /crm/associations/v4/definitions/configurations/{from}/{to}/batch/create` or `.../batch/update`, found in the official SDK's own compiled request code since the SDK's `Client` class doesn't expose this API group through its usual `crm.associations.v4.*` path). `labels-list`/`labels-create`/`labels-delete` work fine through the CLI and are used as-is.
+
 ### `associations pull --from <type> --to <type>` / `--all`
 
 ```bash
 hubspot-cli associations pull --from contacts --to companies
-hubspot-cli associations pull --all --env sandbox   # every discoverable pair with custom labels or limits
+hubspot-cli associations pull --all   # re-pulls every pair already present in hubspot/associations/, by its own from/to
 ```
+
+`--all` doesn't discover new pairs on its own (there's no endpoint to enumerate "every object-type pair with custom associations" on a portal) - it just refreshes every file already in the directory using that file's own `from`/`to`. Pull a new pair for the first time with `--from`/`--to` directly.
 
 ### `associations push <file>`
 
@@ -283,12 +287,14 @@ Config shape:
   "from": "contacts",
   "to": "companies",
   "cardinality": "M:M",
-  "labels": [{ "label": "Decision Maker" }],
+  "labels": [{ "label": "Decision Maker", "name": "DECISION_MAKER" }],
   "limits": { "category": "USER_DEFINED", "maxToObjectIds": 1 }
 }
 ```
 
-`cardinality` is a descriptive, human-readable summary (`1:1`, `1:M`, `M:1`, `M:M`) derived from `limits` on pull — it isn't itself a HubSpot API field, and `push` doesn't read it; it's there so the relationship's shape is obvious at a glance without mentally decoding `maxToObjectIds`.
+`cardinality` is a descriptive, human-readable summary (`M:1` or `M:M`, derived from whether `limits.maxToObjectIds` is `1`) - it isn't itself a HubSpot API field, and `push` doesn't read it; it's there so the relationship's shape is obvious at a glance without mentally decoding `maxToObjectIds`. `limits` applies to the bundle's first `labels[]` entry - the file format carries one `limits` object per pair, not one per label, so a bundle with more than one custom label and a meaningful per-label cap isn't representable yet.
+
+`name` on a label is derived (upper-cased, non-alphanumeric runs collapsed to `_`) rather than something the API returns - confirmed live, `labels-list` only returns `{typeId, label, category, fromObjectTypeId, toObjectTypeId}`, no `name` field at all; `name` only exists because `labels-create` auto-derives it from `label` the same way, confirmed in issue #1.
 
 ### `associations diff <file>` / `--all`
 
@@ -302,7 +308,7 @@ Example output:
 contacts-companies.json vs remote (env: production)
 
   + label: Gatekeeper
-  ~ limit: maxToObjectIds 1 -> 2
+  ~ limits: {"category":"USER_DEFINED","maxToObjectIds":1} -> {"category":"USER_DEFINED","maxToObjectIds":2}
 ```
 
 ---

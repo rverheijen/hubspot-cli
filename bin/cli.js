@@ -5,6 +5,11 @@ import { parseGlobalFlags, loadEnvFile, buildEnv, deriveEnvName } from '../lib/e
 import { pullObject, pullAllObjects, fetchObjectBundle, readObjectBundle, listLocalObjectFiles } from '../lib/objects.js';
 import { diffObjectBundles, hasDifferences, formatObjectDiff } from '../lib/diff.js';
 import { pushObject } from '../lib/push.js';
+import {
+  fetchAssociationBundle, readAssociationBundle, writeAssociationBundle,
+  diffAssociationBundle, hasAssociationDifferences, formatAssociationDiff,
+  pushAssociationBundle, listLocalAssociationFiles, associationFilePath,
+} from '../lib/associations.js';
 
 const { remaining: args, envFile, envName, dir, all, full, force } = parseGlobalFlags(process.argv.slice(2));
 
@@ -19,6 +24,9 @@ const ADDED_COMMANDS = [
   'objects pull <type> / --all   Save an object\'s schema + property groups + properties to hubspot/objects/',
   'objects diff <file> / --all   Compare a local object bundle against remote',
   'objects push <file> / --all   Create/update an object\'s schema, property groups, and properties',
+  'associations pull --from <type> --to <type> / --all   Save custom labels + limits to hubspot/associations/',
+  'associations diff <file> / --all   Compare a local association bundle against remote',
+  'associations push <file>   Create missing labels and apply limits for one from->to pair',
 ];
 
 // top-level --help / -h / no args
@@ -122,6 +130,98 @@ if (args[0] === 'objects' && args[1] === 'push') {
     if (!(await pushOne(f))) anyFailed = true;
   }
   process.exit(anyFailed ? 1 : 0);
+}
+
+// associations pull --from <type> --to <type> / --all
+if (args[0] === 'associations' && args[1] === 'pull') {
+  let from = null;
+  let to = null;
+  for (let i = 2; i < args.length; i++) {
+    if (args[i] === '--from') from = args[++i];
+    else if (args[i] === '--to') to = args[++i];
+  }
+
+  if (all) {
+    const files = listLocalAssociationFiles(dir);
+    let anyFailed = false;
+    for (const f of files) {
+      const existing = readAssociationBundle(f);
+      try {
+        const bundle = await fetchAssociationBundle(existing.from, existing.to, env);
+        writeAssociationBundle(f, bundle);
+        console.log(`Pulled ${existing.from}-${existing.to} -> ${f}`);
+      } catch (err) {
+        anyFailed = true;
+        console.error(`Failed ${existing.from}-${existing.to}: ${err.message}`);
+      }
+    }
+    process.exit(anyFailed ? 1 : 0);
+  }
+
+  if (!from || !to) {
+    console.error('Usage: hubspot-cli associations pull --from <type> --to <type>');
+    console.error('       hubspot-cli associations pull --all');
+    process.exit(1);
+  }
+
+  const bundle = await fetchAssociationBundle(from, to, env);
+  const filePath = associationFilePath(from, to, dir);
+  writeAssociationBundle(filePath, bundle);
+  console.log(`Pulled ${from}-${to} -> ${filePath}`);
+  process.exit(0);
+}
+
+// associations diff <file> / --all
+if (args[0] === 'associations' && args[1] === 'diff') {
+  const file = args[2] && !args[2].startsWith('--') ? args[2] : null;
+
+  if (!file && !all) {
+    console.error('Usage: hubspot-cli associations diff <file>');
+    console.error('       hubspot-cli associations diff --all');
+    process.exit(1);
+  }
+
+  async function diffAssociationOne(filePath) {
+    const local = readAssociationBundle(filePath);
+    const remote = await fetchAssociationBundle(local.from, local.to, env);
+    const diff = diffAssociationBundle(local, remote);
+    const differs = hasAssociationDifferences(diff);
+    console.log(formatAssociationDiff(diff, `${filePath} vs remote (env: ${currentEnvName})`));
+    console.log();
+    return differs;
+  }
+
+  const files = all ? listLocalAssociationFiles(dir) : [file];
+  let anyAssociationDiffers = false;
+  for (const f of files) {
+    try {
+      if (await diffAssociationOne(f)) anyAssociationDiffers = true;
+    } catch (err) {
+      anyAssociationDiffers = true;
+      console.error(`${f}: ${err.message}`);
+    }
+  }
+  process.exit(anyAssociationDiffers ? 1 : 0);
+}
+
+// associations push <file>
+if (args[0] === 'associations' && args[1] === 'push') {
+  const file = args[2] && !args[2].startsWith('--') ? args[2] : null;
+
+  if (!file) {
+    console.error('Usage: hubspot-cli associations push <file>');
+    process.exit(1);
+  }
+
+  try {
+    const { messages } = await pushAssociationBundle(file, { env });
+    console.log(file);
+    for (const m of messages) console.log(`  ${m}`);
+    process.exit(0);
+  } catch (err) {
+    console.error(`${file}: ${err.message}`);
+    process.exit(1);
+  }
 }
 
 // Everything else passes straight through to the real hubspot binary.
