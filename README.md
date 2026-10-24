@@ -313,11 +313,21 @@ Config shape:
 
 `cardinality` is a descriptive, human-readable summary (`M:1` or `M:M`, derived from whether `limits.maxToObjectIds` is `1`) - it isn't itself a HubSpot API field, and `push` doesn't read it; it's there so the relationship's shape is obvious at a glance without mentally decoding `maxToObjectIds`. `limits` carries one object per pair, not one per label, so a bundle with more than one custom label and a meaningful per-label cap isn't representable yet.
 
-`limits.label` names which association type the limit applies to, and falls back to the bundle's first `labels[]` entry if omitted (the common case, one label and one limit together). It's also how to cap an existing `HUBSPOT_DEFINED` association type with `labels: []` and no custom labels at all - e.g. the default association type HubSpot already creates via `schemas create`'s `associatedObjects` for a brand-new custom object:
+`limits.label` names which association type the limit applies to, and falls back to the bundle's first `labels[]` entry if omitted (the common case, one label and one limit together). It's also how to cap an existing `HUBSPOT_DEFINED` association type with `labels: []` and no custom labels at all - e.g. a built-in default association type between two standard objects:
 
 ```json
 { "from": "equipment", "to": "contacts", "cardinality": "M:1", "labels": [], "limits": { "label": "Equipment to Contact", "category": "HUBSPOT_DEFINED", "maxToObjectIds": 1 } }
 ```
+
+**`limits.typeId`** targets an association type directly by its numeric id, for the one case `limits.label` can't cover at all: a `null` label. Confirmed live, declaring `associatedObjects` at `schemas create` time for a brand-new custom object does **not** create a `HUBSPOT_DEFINED` type the way its own name suggests - it creates a `USER_DEFINED` one with `label: null`, no text to resolve by whatsoever. When present, `limits.typeId` takes priority over `limits.label`:
+
+```json
+{ "from": "holdings", "to": "accounts", "cardinality": "M:1", "labels": [], "limits": { "typeId": 425, "category": "USER_DEFINED", "maxToObjectIds": 1 } }
+```
+
+A pulled bundle only includes `limits.typeId` when the type's label is actually `null` - not unconditionally - so hand-editing `limits.label` on an existing pulled bundle to retarget it at a different (not-yet-created) label still works as intended, rather than a stale `typeId` from the original pull silently overriding that edit.
+
+`from`/`to` in the bundle itself can stay as plain type names either way (`"holdings"`, `"accounts"`) - resolved to numeric `objectTypeId`s internally before the raw limits API call, since that endpoint can't resolve a brand-new custom object's plain name reliably (confirmed live: failed by name minutes after creation, while `schemas get` by then already resolved the same name fine - a third cache/index with its own propagation lag, on top of the two issue #3 already tracks).
 
 `name` on a label is derived (upper-cased, non-alphanumeric runs collapsed to `_`) rather than something the API returns - confirmed live, `labels-list` only returns `{typeId, label, category, fromObjectTypeId, toObjectTypeId}`, no `name` field at all; `name` only exists because `labels-create` auto-derives it from `label` the same way, confirmed in issue #1.
 
